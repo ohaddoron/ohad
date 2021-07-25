@@ -10,6 +10,7 @@ import sys
 import pathlib
 from src.utils import connect_to_database, get_dcm_dirs, get_segmentation_files
 from common.utils import get_unique_patient_barcodes
+from PIL import Image
 
 
 @st.cache
@@ -56,9 +57,13 @@ with st.beta_container():
     # logger.critical(dicom_dir)
     images = read_dicom_images(dicom_dir)
     for image, segmentation_slice in zip(images[slice_range[2][0]:slice_range[2][1] + 1], segmentation_slices):
-        cols = st.beta_columns(3)
+        cols = st.beta_columns(4)
 
         cols[0].image(image, clamp=True)
         image = (255 * (image / np.max(image))).astype(np.uint8)
         cols[1].image(image)
         cols[2].image((255 * segmentation_slice).astype(np.uint8))
+
+        resized = Image.fromarray((
+            255 * segmentation_slice).astype(np.uint8)).resize((512, 512))
+        cols[3].image(resized)
