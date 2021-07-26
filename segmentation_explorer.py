@@ -1,16 +1,10 @@
-from common.utils import init_cached_database
-import streamlit as st
 import SimpleITK as sitk
-from common.les_files import read_all_maps_from_les_file
 import numpy as np
-from glob import glob
-from loguru import logger
-import os
-import sys
-import pathlib
-from src.utils import connect_to_database, get_dcm_dirs, get_segmentation_files
-from common.utils import get_unique_patient_barcodes
-from PIL import Image
+import skimage.exposure
+import streamlit as st
+from common.les_files import read_all_maps_from_les_file
+from common.utils import get_unique_patient_barcodes, get_series_uids
+from src.utils import connect_to_database, get_dcm_dirs, get_segmentation_files, overlay_segmentation_on_image
 
 
 @st.cache
@@ -31,39 +25,57 @@ def get_unique_barcode_names():
     return patient_barcodes
 
 
-with st.sidebar.beta_container():
-    patient_barcode = st.selectbox(
-        label='Patient barcode', options=get_unique_barcode_names())
-
-    segmentation_file = get_segmentation_files(
-        bcr_patient_barcode=patient_barcode)[0]
-    dcm_dirs = get_dcm_dirs(bcr_patient_barcode=patient_barcode)
-
-    segmentation_maps = read_all_maps_from_les_file(
-        segmentation_file)
-
-    slice_range = segmentation_maps[0]['header']
-
-    segmentation_slices = (segmentation_maps[0]['data']).astype(np.bool8)
-
-    image_index = st.slider(
-        label='Image index', min_value=0, max_value=len(dcm_dirs))
-
-    dicom_dir = dcm_dirs[image_index]
+@st.cache(ttl=600)
+def get_series_uids_for_display(patient_barcode):
+    db = connect_to_database()
+    series_uids = get_series_uids(col=db['tcga_breast_radiologist_reads'], patient_barcode=patient_barcode)
+    return series_uids
 
 
-with st.beta_container():
-    st.header(dicom_dir.split('/')[-1])
-    # logger.critical(dicom_dir)
-    images = read_dicom_images(dicom_dir)
-    for image, segmentation_slice in zip(images[slice_range[2][0]:slice_range[2][1] + 1], segmentation_slices):
-        cols = st.beta_columns(4)
+def main():
+    with st.sidebar.beta_container():
+        patient_barcode = st.selectbox(
+            label='Patient barcode', options=get_unique_barcode_names())
 
-        cols[0].image(image, clamp=True)
-        image = (255 * (image / np.max(image))).astype(np.uint8)
-        cols[1].image(image)
-        cols[2].image((255 * segmentation_slice).astype(np.uint8))
+        segmentation_file = get_segmentation_files(
+            bcr_patient_barcode=patient_barcode)[0]
 
-        resized = Image.fromarray((
-            255 * segmentation_slice).astype(np.uint8)).resize((512, 512))
-        cols[3].image(resized)
+        series_uids = get_series_uids_for_display(patient_barcode)
+        dcm_dirs = get_dcm_dirs(bcr_patient_barcode=patient_barcode)
+
+        dirs_to_use = []
+        for series_uid in series_uids:
+            dirs_to_use.append(
+                [dcm_dir for dcm_dir in dcm_dirs if series_uid in dcm_dir][0])
+        dcm_dirs = dirs_to_use
+
+        segmentation_maps = read_all_maps_from_les_file(
+            segmentation_file)
+
+        slice_range = segmentation_maps[0]['header']
+
+        segmentation_slices = (segmentation_maps[0]['data']).astype(np.bool8)
+
+        images_to_display = st.multiselect(
+            label='Dicom Images', options=dcm_dirs, default=dcm_dirs)
+
+    with st.beta_container():
+        for dicom_dir in images_to_display:
+            st.header(dicom_dir.split('/')[-1])
+
+            images = read_dicom_images(dicom_dir)
+            for image, segmentation_slice in zip(images[slice_range[2][0]:slice_range[2][1] + 1], segmentation_slices):
+                cols = st.beta_columns(2)
+
+                image = (255 * (image / np.max(image))).astype(np.uint8)
+
+                image = (skimage.exposure.equalize_adapthist(
+                    image, kernel_size=15) * 255).astype(np.uint8)
+                cols[0].image(image)
+
+                cols[1].image(overlay_segmentation_on_image(
+                    segmentation_slice=segmentation_slice, image=image, header=slice_range))
+
+
+if __name__ == '__main__':
+    main()
