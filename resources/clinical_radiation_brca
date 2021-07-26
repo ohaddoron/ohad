@@ -1,0 +1,2277 @@
+[
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ce"
+    },
+    "bcr_patient_uuid": "02bf5203-f9cd-4c5a-97b4-e5584dc22325",
+    "bcr_patient_barcode": "TCGA-AO-A0J8",
+    "bcr_radiation_barcode": "TCGA-AO-A0J8-R3129",
+    "bcr_radiation_uuid": "7699227a-2529-4bd0-bb64-08d7ffbe4aad",
+    "form_completion_date": {
+      "$date": 1284854400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5240,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 21,
+    "radiation_therapy_started_days_to": 252,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 281,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59cf"
+    },
+    "bcr_patient_uuid": "a4903de8-6cf5-4541-8ec7-065beace8b44",
+    "bcr_patient_barcode": "TCGA-AO-A0J9",
+    "bcr_radiation_barcode": "TCGA-AO-A0J9-R3154",
+    "bcr_radiation_uuid": "5e4bd8f8-0619-48a2-812d-c6f0626c1e60",
+    "form_completion_date": {
+      "$date": 1284854400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 11117,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 226,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 263,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d0"
+    },
+    "bcr_patient_uuid": "3ea9412b-429e-4dcf-90cd-c53be06885a1",
+    "bcr_patient_barcode": "TCGA-AO-A0JB",
+    "bcr_radiation_barcode": "TCGA-AO-A0JB-R3175",
+    "bcr_radiation_uuid": "4696646b-a422-4344-a88d-d9e532419e43",
+    "form_completion_date": {
+      "$date": 1283731200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 15120,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 216,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 253,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d1"
+    },
+    "bcr_patient_uuid": "f357fe19-5359-4662-8ce9-aa996132283b",
+    "bcr_patient_barcode": "TCGA-AO-A0JF",
+    "bcr_radiation_barcode": "TCGA-AO-A0JF-R3205",
+    "bcr_radiation_uuid": "605f8f77-3566-431e-93ae-33ec0b26904a",
+    "form_completion_date": {
+      "$date": 1283731200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5272,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 21,
+    "radiation_therapy_started_days_to": 299,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 328,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d2"
+    },
+    "bcr_patient_uuid": "44bec761-b603-49c0-8634-f6bfe0319bb1",
+    "bcr_patient_barcode": "TCGA-AO-A0JM",
+    "bcr_radiation_barcode": "TCGA-AO-A0JM-R3229",
+    "bcr_radiation_uuid": "7e8ccc49-defa-4a33-bd6a-edb852153291",
+    "form_completion_date": {
+      "$date": 1284940800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 10000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 25,
+    "radiation_therapy_started_days_to": 260,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 294,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d3"
+    },
+    "bcr_patient_uuid": "c70ee5e1-4703-4996-bb5c-f4cca0fb53ba",
+    "bcr_patient_barcode": "TCGA-AO-A129",
+    "bcr_radiation_barcode": "TCGA-AO-A129-R5883",
+    "bcr_radiation_uuid": "0417042c-5493-4b8d-b969-7077215b602d",
+    "form_completion_date": {
+      "$date": 1291766400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 216,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 246,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d4"
+    },
+    "bcr_patient_uuid": "2fe854b4-bac9-4801-9a1c-ee99388e8082",
+    "bcr_patient_barcode": "TCGA-AO-A12D",
+    "bcr_radiation_barcode": "TCGA-AO-A12D-R5893",
+    "bcr_radiation_uuid": "be918525-d872-4c32-9a3b-104e79637323",
+    "form_completion_date": {
+      "$date": 1291766400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 10000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 25,
+    "radiation_therapy_started_days_to": 282,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 316,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d5"
+    },
+    "bcr_patient_uuid": "2cbeadff-a8a3-4787-9d4e-f6b74c3ab5d9",
+    "bcr_patient_barcode": "TCGA-AO-A12E",
+    "bcr_radiation_barcode": "TCGA-AO-A12E-R5896",
+    "bcr_radiation_uuid": "2f7dc558-30d7-46dc-8dfa-b8f59d9588bf",
+    "form_completion_date": {
+      "$date": 1291766400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 10080,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 251,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 288,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d6"
+    },
+    "bcr_patient_uuid": "495f9eda-b9be-4eef-bae1-766a4bfbd68e",
+    "bcr_patient_barcode": "TCGA-AO-A12F",
+    "bcr_radiation_barcode": "TCGA-AO-A12F-R5904",
+    "bcr_radiation_uuid": "d6634ff1-45f7-48bb-9b16-7b9d2f69a6db",
+    "form_completion_date": {
+      "$date": 1291766400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 5000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 25,
+    "radiation_therapy_started_days_to": 220,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 254,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d7"
+    },
+    "bcr_patient_uuid": "83f943c7-3975-4b4f-985d-9c057741793b",
+    "bcr_patient_barcode": "TCGA-AQ-A04H",
+    "bcr_radiation_barcode": "TCGA-AQ-A04H-R4982",
+    "bcr_radiation_uuid": "d113adb3-5e01-4acc-b1c5-f15e6762bb51",
+    "form_completion_date": {
+      "$date": 1292457600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 138,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 166,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d8"
+    },
+    "bcr_patient_uuid": "43029932-feb0-4658-97fa-645c1e775009",
+    "bcr_patient_barcode": "TCGA-AR-A1AN",
+    "bcr_radiation_barcode": "TCGA-AR-A1AN-R21989",
+    "bcr_radiation_uuid": "467D9E15-348F-40CC-9E9C-FE3500CBD635",
+    "form_completion_date": {
+      "$date": 1330387200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 169,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 211,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59d9"
+    },
+    "bcr_patient_uuid": "98e0b4de-52fc-4945-9bf5-11e29368f939",
+    "bcr_patient_barcode": "TCGA-AR-A1AQ",
+    "bcr_radiation_barcode": "TCGA-AR-A1AQ-R21804",
+    "bcr_radiation_uuid": "3579DB65-F66D-41A4-B13A-E32DD54BEBDF",
+    "form_completion_date": {
+      "$date": 1330300800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 121,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 163,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59da"
+    },
+    "bcr_patient_uuid": "f72c1d69-da35-459f-8542-59bfd6c09c23",
+    "bcr_patient_barcode": "TCGA-AR-A1AX",
+    "bcr_radiation_barcode": "TCGA-AR-A1AX-R22141",
+    "bcr_radiation_uuid": "FD178C27-E6A3-460C-95B5-BB1D1CC94E82",
+    "form_completion_date": {
+      "$date": 1330560000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6060,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 194,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 242,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59db"
+    },
+    "bcr_patient_uuid": "aa30ac3d-4216-45dd-a314-1ae192fafcb2",
+    "bcr_patient_barcode": "TCGA-AR-A24M",
+    "bcr_radiation_barcode": "TCGA-AR-A24M-R31289",
+    "bcr_radiation_uuid": "993D8611-83E6-452A-8153-DD07E97149A3",
+    "form_completion_date": {
+      "$date": 1335484800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 172,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 221,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59dc"
+    },
+    "bcr_patient_uuid": "db62d9c7-8343-4771-84fc-146d2e307bb8",
+    "bcr_patient_barcode": "TCGA-AR-A24R",
+    "bcr_radiation_barcode": "TCGA-AR-A24R-R31463",
+    "bcr_radiation_uuid": "95453BBE-20F4-4F6E-9C53-6FC33C65D529",
+    "form_completion_date": {
+      "$date": 1336003200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6240,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 34,
+    "radiation_therapy_started_days_to": 249,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 295,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59dd"
+    },
+    "bcr_patient_uuid": "074e8b06-3929-4896-9263-3b80ad6a355b",
+    "bcr_patient_barcode": "TCGA-AR-A24S",
+    "bcr_radiation_barcode": "TCGA-AR-A24S-R31497",
+    "bcr_radiation_uuid": "6158469F-BAE7-4222-BAF2-A95FF4534F27",
+    "form_completion_date": {
+      "$date": 1336089600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 3850,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 10,
+    "radiation_therapy_started_days_to": 55,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 62,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59de"
+    },
+    "bcr_patient_uuid": "241fffc8-4250-4cfa-b2e7-e68c33ae07dc",
+    "bcr_patient_barcode": "TCGA-AR-A24U",
+    "bcr_radiation_barcode": "TCGA-AR-A24U-R31593",
+    "bcr_radiation_uuid": "651DA6E4-2E69-451D-AB97-54875022C4F4",
+    "form_completion_date": {
+      "$date": 1336348800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 207,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 246,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59df"
+    },
+    "bcr_patient_uuid": "6014a582-d22e-46e1-9000-c8e2fbad7acf",
+    "bcr_patient_barcode": "TCGA-AR-A254",
+    "bcr_radiation_barcode": "TCGA-AR-A254-R31900",
+    "bcr_radiation_uuid": "967465A7-0A86-4FBD-A554-CA1E36E827D2",
+    "form_completion_date": {
+      "$date": 1336608000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 252,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 291,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e0"
+    },
+    "bcr_patient_uuid": "c5891c7a-fd24-4891-8f51-373967e4a6dd",
+    "bcr_patient_barcode": "TCGA-BH-A0AW",
+    "bcr_radiation_barcode": "TCGA-BH-A0AW-R15451",
+    "bcr_radiation_uuid": "2E78F368-4AD6-4F12-A487-FC57001C95A9",
+    "form_completion_date": {
+      "$date": 1288742400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 201,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 252,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e1"
+    },
+    "bcr_patient_uuid": "b4e4fea2-b802-4a86-923e-3fcbd3c708fe",
+    "bcr_patient_barcode": "TCGA-BH-A0B1",
+    "bcr_radiation_barcode": "TCGA-BH-A0B1-R15434",
+    "bcr_radiation_uuid": "6CBDF1E7-E2BB-4EEC-9C61-547430A54E0A",
+    "form_completion_date": {
+      "$date": 1288742400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 287,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 343,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e2"
+    },
+    "bcr_patient_uuid": "18eb4dfc-556f-4bf3-a411-4780209ed1e0",
+    "bcr_patient_barcode": "TCGA-BH-A0B3",
+    "bcr_radiation_barcode": "TCGA-BH-A0B3-R15422",
+    "bcr_radiation_uuid": "F9F1D8C1-B2FA-4516-B98F-D50ACCB6C8C6",
+    "form_completion_date": {
+      "$date": 1288742400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 24,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 72,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e3"
+    },
+    "bcr_patient_uuid": "9da462b0-93c2-4305-89f6-7199a30399a7",
+    "bcr_patient_barcode": "TCGA-BH-A0B5",
+    "bcr_radiation_barcode": "TCGA-BH-A0B5-R59188",
+    "bcr_radiation_uuid": "814C435B-99BC-4D04-AD11-C90E47DEBE5F",
+    "form_completion_date": {
+      "$date": 1398988800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 100,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 6,
+    "radiation_therapy_started_days_to": 300,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 304,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e4"
+    },
+    "bcr_patient_uuid": "FA4E082A-D213-412E-8D91-842A6F4BEF12",
+    "bcr_patient_barcode": "TCGA-BH-A0B6",
+    "bcr_radiation_barcode": "TCGA-BH-A0B6-R61948",
+    "bcr_radiation_uuid": "8CC21685-71B7-44DA-8672-63853A6F8706",
+    "form_completion_date": {
+      "$date": 1404950400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6640,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 36,
+    "radiation_therapy_started_days_to": 94,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 143,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e5"
+    },
+    "bcr_patient_uuid": "4f608829-ffc4-4527-886e-6bc764ab29f5",
+    "bcr_patient_barcode": "TCGA-BH-A0BG",
+    "bcr_radiation_barcode": "TCGA-BH-A0BG-R58616",
+    "bcr_radiation_uuid": "FBA2D677-DEA7-483C-AA88-82D4D14CB644",
+    "form_completion_date": {
+      "$date": 1397606400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 84,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 131,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e6"
+    },
+    "bcr_patient_uuid": "d6f911b5-e895-43f8-8f86-0ac2f1bc6fae",
+    "bcr_patient_barcode": "TCGA-BH-A0BJ",
+    "bcr_radiation_barcode": "TCGA-BH-A0BJ-R4479",
+    "bcr_radiation_uuid": "5F4133B4-BA40-404B-8F1E-98D266078E77",
+    "form_completion_date": {
+      "$date": 1289779200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 398,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 443,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e7"
+    },
+    "bcr_patient_uuid": "a32cb96a-78bf-456e-a6ab-2d47b2c67ad4",
+    "bcr_patient_barcode": "TCGA-BH-A0BT",
+    "bcr_radiation_barcode": "TCGA-BH-A0BT-R59144",
+    "bcr_radiation_uuid": "9C01B233-7499-4880-BDBF-74AE44ED26D6",
+    "form_completion_date": {
+      "$date": 1398902400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 66.4,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 36,
+    "radiation_therapy_started_days_to": 167,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 227,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e8"
+    },
+    "bcr_patient_uuid": "7875018b-91dc-4ab1-83b0-ee3883e2816e",
+    "bcr_patient_barcode": "TCGA-BH-A0C0",
+    "bcr_radiation_barcode": "TCGA-BH-A0C0-R4517",
+    "bcr_radiation_uuid": "E34524B4-285D-4250-BFF1-FC7F8FB4999D",
+    "form_completion_date": {
+      "$date": 1289865600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 204,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 249,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59e9"
+    },
+    "bcr_patient_uuid": "7f0bbba1-9bc3-45db-bdda-eb3319bb15d2",
+    "bcr_patient_barcode": "TCGA-BH-A0DE",
+    "bcr_radiation_barcode": "TCGA-BH-A0DE-R63544",
+    "bcr_radiation_uuid": "53372D2F-D9F7-48BC-8E09-94CF40CC253F",
+    "form_completion_date": {
+      "$date": 1407801600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 105,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 149,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ea"
+    },
+    "bcr_patient_uuid": "0bc5744c-5fa3-45bb-87d0-70a02068b392",
+    "bcr_patient_barcode": "TCGA-BH-A0DG",
+    "bcr_radiation_barcode": "TCGA-BH-A0DG-R63662",
+    "bcr_radiation_uuid": "16BBF746-9D23-4F90-94B5-7C620BC39CFA",
+    "form_completion_date": {
+      "$date": 1407974400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 166,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 181,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59eb"
+    },
+    "bcr_patient_uuid": "491b6364-1223-474f-816f-e248c8c841e2",
+    "bcr_patient_barcode": "TCGA-BH-A0DH",
+    "bcr_radiation_barcode": "TCGA-BH-A0DH-R4527",
+    "bcr_radiation_uuid": "7A76D067-B17D-48A7-8210-123A89951ED4",
+    "form_completion_date": {
+      "$date": 1289952000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 189,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 233,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ec"
+    },
+    "bcr_patient_uuid": "27ba717a-5cd8-440a-9345-4ae086f6efca",
+    "bcr_patient_barcode": "TCGA-BH-A0DI",
+    "bcr_radiation_barcode": "TCGA-BH-A0DI-R58706",
+    "bcr_radiation_uuid": "638AB258-DB1B-4910-9106-5FA88FB73D59",
+    "form_completion_date": {
+      "$date": 1398124800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 10,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 5,
+    "radiation_therapy_started_days_to": 363,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 369,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ed"
+    },
+    "bcr_patient_uuid": "96b9c7db-1be1-4b60-b47c-26b654c3d64c",
+    "bcr_patient_barcode": "TCGA-BH-A0DV",
+    "bcr_radiation_barcode": "TCGA-BH-A0DV-R63676",
+    "bcr_radiation_uuid": "4BEA7C33-55A3-42B7-97E0-D43F494C6B9D",
+    "form_completion_date": {
+      "$date": 1408060800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 177,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 223,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ee"
+    },
+    "bcr_patient_uuid": "035cb359-eac3-484a-9e88-3ddc739440a3",
+    "bcr_patient_barcode": "TCGA-BH-A0DX",
+    "bcr_radiation_barcode": "TCGA-BH-A0DX-R59136",
+    "bcr_radiation_uuid": "CBDB023B-245F-4480-B77C-958E1430C45A",
+    "form_completion_date": {
+      "$date": 1398902400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 36,
+    "radiation_therapy_started_days_to": 171,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 221,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ef"
+    },
+    "bcr_patient_uuid": "20e8106b-1290-4735-abe4-7621e08e3dc8",
+    "bcr_patient_barcode": "TCGA-BH-A0E0",
+    "bcr_radiation_barcode": "TCGA-BH-A0E0-R4601",
+    "bcr_radiation_uuid": "7729AB44-C0F8-40F3-A012-E97C7F94CAC7",
+    "form_completion_date": {
+      "$date": 1290384000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 198,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 255,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f0"
+    },
+    "bcr_patient_uuid": "76ace6aa-0505-442c-978a-f889cf2d44bb",
+    "bcr_patient_barcode": "TCGA-BH-A0E9",
+    "bcr_radiation_barcode": "TCGA-BH-A0E9-R59109",
+    "bcr_radiation_uuid": "F5797B5C-F9B3-4797-9DE9-0A5DEACCBF3C",
+    "form_completion_date": {
+      "$date": 1398902400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 1400,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 7,
+    "radiation_therapy_started_days_to": 192,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 201,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f1"
+    },
+    "bcr_patient_uuid": "22b35927-1c3f-4f98-ba42-deafc56b677a",
+    "bcr_patient_barcode": "TCGA-BH-A0EI",
+    "bcr_radiation_barcode": "TCGA-BH-A0EI-R59121",
+    "bcr_radiation_uuid": "AAB0EEA5-BADE-4CBB-BBD8-3F0FBC725701",
+    "form_completion_date": {
+      "$date": 1398902400000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 900,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 350,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 350,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f2"
+    },
+    "bcr_patient_uuid": "7d9d3522-ec3b-4efe-8c8e-c0e675276ef5",
+    "bcr_patient_barcode": "TCGA-BH-A0GY",
+    "bcr_radiation_barcode": "TCGA-BH-A0GY-R4694",
+    "bcr_radiation_uuid": "78B3B214-FA94-42A3-A70B-7FD74250E365",
+    "form_completion_date": {
+      "$date": 1289952000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 317,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 365,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f3"
+    },
+    "bcr_patient_uuid": "27dfb9d4-3a2c-44bc-9acf-8f638d3f3004",
+    "bcr_patient_barcode": "TCGA-BH-A0GZ",
+    "bcr_radiation_barcode": "TCGA-BH-A0GZ-R4693",
+    "bcr_radiation_uuid": "2C0E7F31-3FAC-443E-BBDB-9DDEF10114BA",
+    "form_completion_date": {
+      "$date": 1289952000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": null,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": null,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f4"
+    },
+    "bcr_patient_uuid": "6cdc0d53-f813-4101-81e5-9bee68270536",
+    "bcr_patient_barcode": "TCGA-BH-A0H3",
+    "bcr_radiation_barcode": "TCGA-BH-A0H3-R58601",
+    "bcr_radiation_uuid": "091A7641-7710-4553-8542-90FDEBEFA4AF",
+    "form_completion_date": {
+      "$date": 1397520000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 14,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 7,
+    "radiation_therapy_started_days_to": 118,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 126,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f5"
+    },
+    "bcr_patient_uuid": "aeb6a3a6-b57a-4c53-90e6-e833777dd2a1",
+    "bcr_patient_barcode": "TCGA-BH-A0H6",
+    "bcr_radiation_barcode": "TCGA-BH-A0H6-R4707",
+    "bcr_radiation_uuid": "30C78395-364D-4EDC-97D5-D54F53759758",
+    "form_completion_date": {
+      "$date": 1290384000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5208,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 20,
+    "radiation_therapy_started_days_to": 64,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 97,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f6"
+    },
+    "bcr_patient_uuid": "2021ed1f-dc75-4701-b8b8-1386466e4802",
+    "bcr_patient_barcode": "TCGA-BH-A0H7",
+    "bcr_radiation_barcode": "TCGA-BH-A0H7-R4736",
+    "bcr_radiation_uuid": "8B3F8793-8DF3-477C-BFB8-CA5F68C9C608",
+    "form_completion_date": {
+      "$date": 1289952000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 274,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 314,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f7"
+    },
+    "bcr_patient_uuid": "0f64edec-0f1f-4025-8a53-75f9534f7828",
+    "bcr_patient_barcode": "TCGA-BH-A0H9",
+    "bcr_radiation_barcode": "TCGA-BH-A0H9-R4701",
+    "bcr_radiation_uuid": "2EBAC797-F05A-4DEA-A427-709B2D7D5B39",
+    "form_completion_date": {
+      "$date": 1289952000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6300,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 35,
+    "radiation_therapy_started_days_to": 225,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 263,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f8"
+    },
+    "bcr_patient_uuid": "e0375a8b-a135-4103-a59d-39063fcf4a6f",
+    "bcr_patient_barcode": "TCGA-BH-A0HI",
+    "bcr_radiation_barcode": "TCGA-BH-A0HI-R4754",
+    "bcr_radiation_uuid": "42D1C987-18FD-4ABB-A93D-5D836F4ED4C4",
+    "form_completion_date": {
+      "$date": 1290384000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 96,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 141,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59f9"
+    },
+    "bcr_patient_uuid": "3c612e12-6de8-44fa-a095-805c45474821",
+    "bcr_patient_barcode": "TCGA-BH-A0W3",
+    "bcr_radiation_barcode": "TCGA-BH-A0W3-R34067",
+    "bcr_radiation_uuid": "A6B969D8-4A1C-4537-94C9-B06187812BFA",
+    "form_completion_date": {
+      "$date": 1343520000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 46,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 63,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 96,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59fa"
+    },
+    "bcr_patient_uuid": "da9c10ea-c13f-4d88-8b94-a0cbc106d036",
+    "bcr_patient_barcode": "TCGA-BH-A0W5",
+    "bcr_radiation_barcode": "TCGA-BH-A0W5-R34072",
+    "bcr_radiation_uuid": "38458462-2593-488B-927B-D274D9182D8F",
+    "form_completion_date": {
+      "$date": 1343520000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 113,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 144,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59fb"
+    },
+    "bcr_patient_uuid": "bfd49783-1767-469b-9d79-7822301c5efc",
+    "bcr_patient_barcode": "TCGA-BH-A18F",
+    "bcr_radiation_barcode": "TCGA-BH-A18F-R59195",
+    "bcr_radiation_uuid": "808DBF60-68C3-472B-B148-479088B903AE",
+    "form_completion_date": {
+      "$date": 1398988800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 1600,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 8,
+    "radiation_therapy_started_days_to": 224,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 233,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59fc"
+    },
+    "bcr_patient_uuid": "878f975b-94fd-4d69-b7e7-1ed3ac2ee438",
+    "bcr_patient_barcode": "TCGA-BH-A18H",
+    "bcr_radiation_barcode": "TCGA-BH-A18H-R59200",
+    "bcr_radiation_uuid": "874B4EE2-C5FA-4C67-B91A-FB143D18AE49",
+    "form_completion_date": {
+      "$date": 1398988800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 10,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 5,
+    "radiation_therapy_started_days_to": 260,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 266,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59fd"
+    },
+    "bcr_patient_uuid": "3bf81a9f-abb4-4495-a514-fd3865e13a03",
+    "bcr_patient_barcode": "TCGA-BH-A201",
+    "bcr_radiation_barcode": "TCGA-BH-A201-R64223",
+    "bcr_radiation_uuid": "94B7945B-92D9-4D1A-868B-84D66F2C3F4D",
+    "form_completion_date": {
+      "$date": 1409097600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6640,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 56,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 108,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59fe"
+    },
+    "bcr_patient_uuid": "e7a00d67-2c26-4d1f-bd17-35f659e88bc1",
+    "bcr_patient_barcode": "TCGA-BH-A202",
+    "bcr_radiation_barcode": "TCGA-BH-A202-R64232",
+    "bcr_radiation_uuid": "2384CC18-9597-4204-8AD1-330A44034AC4",
+    "form_completion_date": {
+      "$date": 1409097600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6100,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 25,
+    "radiation_therapy_started_days_to": 182,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 231,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e59ff"
+    },
+    "bcr_patient_uuid": "b0bcb829-cee0-4247-bb75-093a5bea89ee",
+    "bcr_patient_barcode": "TCGA-E2-A105",
+    "bcr_radiation_barcode": "TCGA-E2-A105-R7695",
+    "bcr_radiation_uuid": "686c1c4e-ee34-4e9d-adfb-82306b6becf2",
+    "form_completion_date": {
+      "$date": 1297641600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 61,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 122,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a00"
+    },
+    "bcr_patient_uuid": "eff2360e-399a-4167-ab2b-798e27bef739",
+    "bcr_patient_barcode": "TCGA-E2-A107",
+    "bcr_radiation_barcode": "TCGA-E2-A107-R7754",
+    "bcr_radiation_uuid": "1241840c-6acc-43d3-8ca1-58be8ecb2824",
+    "form_completion_date": {
+      "$date": 1297641600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 279,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 326,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a01"
+    },
+    "bcr_patient_uuid": "4f04bd10-9902-4a23-b15d-4f4409d79499",
+    "bcr_patient_barcode": "TCGA-E2-A108",
+    "bcr_radiation_barcode": "TCGA-E2-A108-R17426",
+    "bcr_radiation_uuid": "3898256B-7709-4AD8-A5F1-C015BE2F2D7C",
+    "form_completion_date": {
+      "$date": 1317168000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 1000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 5,
+    "radiation_therapy_started_days_to": 307,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 313,
+    "treatment_best_response": null,
+    "course_number": 2,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a02"
+    },
+    "bcr_patient_uuid": "8e159b50-8136-42d4-b9c7-d579a74e4931",
+    "bcr_patient_barcode": "TCGA-E2-A10F",
+    "bcr_radiation_barcode": "TCGA-E2-A10F-R7744",
+    "bcr_radiation_uuid": "ddf6fed7-242c-4544-bb29-f2d335f2dcb7",
+    "form_completion_date": {
+      "$date": 1297641600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 170,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 216,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a03"
+    },
+    "bcr_patient_uuid": "752ad011-79e0-494f-9868-98bf6feb28f8",
+    "bcr_patient_barcode": "TCGA-E2-A14N",
+    "bcr_radiation_barcode": "TCGA-E2-A14N-R19182",
+    "bcr_radiation_uuid": "7722E80A-C0A5-4B7D-95C4-6BBF762D55DD",
+    "form_completion_date": {
+      "$date": 1321488000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 28,
+    "radiation_therapy_started_days_to": 181,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 236,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a04"
+    },
+    "bcr_patient_uuid": "e4fc0909-f284-4471-866d-d8967b6adcbc",
+    "bcr_patient_barcode": "TCGA-E2-A14P",
+    "bcr_radiation_barcode": "TCGA-E2-A14P-R18848",
+    "bcr_radiation_uuid": "6DC4F0B6-6E08-4D24-9535-30E94160D27B",
+    "form_completion_date": {
+      "$date": 1319068800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 47,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 90,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a05"
+    },
+    "bcr_patient_uuid": "c2b104ee-f914-4e79-9e1b-56bf88157472",
+    "bcr_patient_barcode": "TCGA-E2-A14S",
+    "bcr_radiation_barcode": "TCGA-E2-A14S-R18837",
+    "bcr_radiation_uuid": "4A373E26-3FEB-48D8-B451-FAD04381BE4F",
+    "form_completion_date": {
+      "$date": 1320278400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6280,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 34,
+    "radiation_therapy_started_days_to": 160,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 212,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a06"
+    },
+    "bcr_patient_uuid": "3144f1fb-4342-4079-bfe8-940da4bfd88e",
+    "bcr_patient_barcode": "TCGA-E2-A14V",
+    "bcr_radiation_barcode": "TCGA-E2-A14V-R18918",
+    "bcr_radiation_uuid": "79735EF6-10DC-4DF6-B729-8C11B3A5D417",
+    "form_completion_date": {
+      "$date": 1320364800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6640,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 36,
+    "radiation_therapy_started_days_to": 253,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 303,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a07"
+    },
+    "bcr_patient_uuid": "60df7543-6da5-4c75-943b-5800c1e08234",
+    "bcr_patient_barcode": "TCGA-E2-A14X",
+    "bcr_radiation_barcode": "TCGA-E2-A14X-R18859",
+    "bcr_radiation_uuid": "F63A992C-A3FF-4949-86BE-6556F627B1A3",
+    "form_completion_date": {
+      "$date": 1320364800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6640,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 36,
+    "radiation_therapy_started_days_to": 218,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 271,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a08"
+    },
+    "bcr_patient_uuid": "4ac693e9-10f3-46b3-9d46-df3af7b0d259",
+    "bcr_patient_barcode": "TCGA-E2-A150",
+    "bcr_radiation_barcode": "TCGA-E2-A150-R18519",
+    "bcr_radiation_uuid": "D82259A3-46D2-4F2F-A3B4-42F0AF6342D8",
+    "form_completion_date": {
+      "$date": 1320624000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 154,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 202,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a09"
+    },
+    "bcr_patient_uuid": "d7308344-5bab-4073-bb4f-4d8cd8d7bd17",
+    "bcr_patient_barcode": "TCGA-E2-A159",
+    "bcr_radiation_barcode": "TCGA-E2-A159-R19120",
+    "bcr_radiation_uuid": "ABEB4CB1-0F56-4D55-8796-EF6EF74DD791",
+    "form_completion_date": {
+      "$date": 1320710400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6240,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 34,
+    "radiation_therapy_started_days_to": 165,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 215,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0a"
+    },
+    "bcr_patient_uuid": "73ccc949-01b7-48d3-a7c4-c4bcd261672a",
+    "bcr_patient_barcode": "TCGA-E2-A15A",
+    "bcr_radiation_barcode": "TCGA-E2-A15A-R18938",
+    "bcr_radiation_uuid": "78528A96-4A5C-4ADD-8526-E921E5238F87",
+    "form_completion_date": {
+      "$date": 1320883200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 145,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 222,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0b"
+    },
+    "bcr_patient_uuid": "0a2a3529-f645-4967-9a58-89ee20b8bb62",
+    "bcr_patient_barcode": "TCGA-E2-A15E",
+    "bcr_radiation_barcode": "TCGA-E2-A15E-R18922",
+    "bcr_radiation_uuid": "47F13F36-41AE-454A-B878-B9F1AE276011",
+    "form_completion_date": {
+      "$date": 1320796800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 218,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 275,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0c"
+    },
+    "bcr_patient_uuid": "ec77a23d-84f5-47e4-bf2a-fa1c03baf3db",
+    "bcr_patient_barcode": "TCGA-E2-A15F",
+    "bcr_radiation_barcode": "TCGA-E2-A15F-R18908",
+    "bcr_radiation_uuid": "D9E37765-4428-4C8E-A7D0-6C851A7C95FF",
+    "form_completion_date": {
+      "$date": 1320883200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 42,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 86,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0d"
+    },
+    "bcr_patient_uuid": "17c1d42c-cb84-4655-a4cd-b54bae17ecaf",
+    "bcr_patient_barcode": "TCGA-E2-A15K",
+    "bcr_radiation_barcode": "TCGA-E2-A15K-R18879",
+    "bcr_radiation_uuid": "597CFDF4-47EE-4CFD-8D2B-66BD1D75DE2B",
+    "form_completion_date": {
+      "$date": 1321315200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 232,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 273,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0e"
+    },
+    "bcr_patient_uuid": "59be60a3-e0f6-4d63-b98c-574ef92428c4",
+    "bcr_patient_barcode": "TCGA-E2-A15M",
+    "bcr_radiation_barcode": "TCGA-E2-A15M-R18855",
+    "bcr_radiation_uuid": "85069D51-475A-4210-8DA5-3C2AF8E51324",
+    "form_completion_date": {
+      "$date": 1321315200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6600,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 140,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 211,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a0f"
+    },
+    "bcr_patient_uuid": "8a0ef221-8070-43fc-9d98-def90abe4871",
+    "bcr_patient_barcode": "TCGA-E2-A1B1",
+    "bcr_radiation_barcode": "TCGA-E2-A1B1-R19440",
+    "bcr_radiation_uuid": "06E5C1F9-947C-4BA4-8F46-AE56691487B8",
+    "form_completion_date": {
+      "$date": 1323388800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 31,
+    "radiation_therapy_started_days_to": 302,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 314,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a10"
+    },
+    "bcr_patient_uuid": "7241b3d4-31ee-4fd2-a4a5-35a9d5f37d6a",
+    "bcr_patient_barcode": "TCGA-E2-A1B5",
+    "bcr_radiation_barcode": "TCGA-E2-A1B5-R19413",
+    "bcr_radiation_uuid": "AA902F8D-0E4A-40C2-BE07-BED2DD67E7DC",
+    "form_completion_date": {
+      "$date": 1323302400000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6000,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 130,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 174,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a11"
+    },
+    "bcr_patient_uuid": "2d0d7ff4-7866-4ae1-9cf1-a3c7f4cbe48d",
+    "bcr_patient_barcode": "TCGA-E2-A1IE",
+    "bcr_radiation_barcode": "TCGA-E2-A1IE-R19972",
+    "bcr_radiation_uuid": "03BCA171-2C59-4E91-93E2-0BCEBAD1E9F7",
+    "form_completion_date": {
+      "$date": 1324425600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 6080,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 200,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 251,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a12"
+    },
+    "bcr_patient_uuid": "bc0bc70f-c6cf-4dbc-9dc3-8b7bc5f381a4",
+    "bcr_patient_barcode": "TCGA-E2-A1IG",
+    "bcr_radiation_barcode": "TCGA-E2-A1IG-R19937",
+    "bcr_radiation_uuid": "4215BF0B-2E69-49EA-8801-5539FE4BC44D",
+    "form_completion_date": {
+      "$date": 1324425600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 178,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 222,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a13"
+    },
+    "bcr_patient_uuid": "0fe1419e-a005-407c-8ae7-15c4c1579539",
+    "bcr_patient_barcode": "TCGA-E2-A1II",
+    "bcr_radiation_barcode": "TCGA-E2-A1II-R19959",
+    "bcr_radiation_uuid": "0C04CF63-CC3C-4E0B-A37F-CAF63097FBAB",
+    "form_completion_date": {
+      "$date": 1324425600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 181,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 236,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a14"
+    },
+    "bcr_patient_uuid": "b09643c2-ded5-4346-b3c5-90a48f88a02e",
+    "bcr_patient_barcode": "TCGA-E2-A1IJ",
+    "bcr_radiation_barcode": "TCGA-E2-A1IJ-R19953",
+    "bcr_radiation_uuid": "2BFADC86-259E-4148-BD17-F7BB8E92FE88",
+    "form_completion_date": {
+      "$date": 1324425600000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6440,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 53,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 102,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a15"
+    },
+    "bcr_patient_uuid": "f43d622f-eed5-4933-adc6-ae9ad1e33028",
+    "bcr_patient_barcode": "TCGA-E2-A1IN",
+    "bcr_radiation_barcode": "TCGA-E2-A1IN-R20326",
+    "bcr_radiation_uuid": "EF81F606-FAFB-46F1-82DB-B3285D7A9803",
+    "form_completion_date": {
+      "$date": 1325635200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 57,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 101,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a16"
+    },
+    "bcr_patient_uuid": "791c5768-f0f5-4ab6-86eb-998e5c4b49e3",
+    "bcr_patient_barcode": "TCGA-E2-A1L7",
+    "bcr_radiation_barcode": "TCGA-E2-A1L7-R70387",
+    "bcr_radiation_uuid": "D9FCDCF6-AA31-494F-918B-042E492EEDF2",
+    "form_completion_date": {
+      "$date": 1426464000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 60,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 1694,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 1735,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a17"
+    },
+    "bcr_patient_uuid": "5ea18514-51ad-4844-abea-15e82f0b10c9",
+    "bcr_patient_barcode": "TCGA-E2-A1L9",
+    "bcr_radiation_barcode": "TCGA-E2-A1L9-R20602",
+    "bcr_radiation_uuid": "FB33C7DC-7439-4DE4-B8CE-2F122C0D2BB8",
+    "form_completion_date": {
+      "$date": 1326240000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 33,
+    "radiation_therapy_started_days_to": 140,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 177,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a18"
+    },
+    "bcr_patient_uuid": "c0f88fc5-56b0-4255-bbd1-9a21ced8b37b",
+    "bcr_patient_barcode": "TCGA-EW-A1IZ",
+    "bcr_radiation_barcode": "TCGA-EW-A1IZ-R21549",
+    "bcr_radiation_uuid": "FA7E93F3-A23C-4264-83BF-68B207E736B2",
+    "form_completion_date": {
+      "$date": 1329264000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Local Recurrence",
+    "radiation_total_dose": 6100,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 8,
+    "radiation_therapy_started_days_to": 197,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 261,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a19"
+    },
+    "bcr_patient_uuid": "53ff5893-7d5e-4bcb-be9c-665fa34b7824",
+    "bcr_patient_barcode": "TCGA-EW-A1OY",
+    "bcr_radiation_barcode": "TCGA-EW-A1OY-R32269",
+    "bcr_radiation_uuid": "8C92A96B-0D36-494B-A441-16C4148B266C",
+    "form_completion_date": {
+      "$date": 1337040000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": 29,
+    "radiation_therapy_started_days_to": 341,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 376,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1a"
+    },
+    "bcr_patient_uuid": "521e2140-ae5b-456f-8699-97398d009687",
+    "bcr_patient_barcode": "TCGA-EW-A1P4",
+    "bcr_radiation_barcode": "TCGA-EW-A1P4-R29685",
+    "bcr_radiation_uuid": "1B09106F-D19A-436A-AE7E-6DE51BA1A9B4",
+    "form_completion_date": {
+      "$date": 1332720000000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 15900,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 208,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 263,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1b"
+    },
+    "bcr_patient_uuid": "4cfef7f9-f1ee-401c-a2a3-c225d4adc3b6",
+    "bcr_patient_barcode": "TCGA-EW-A1PA",
+    "bcr_radiation_barcode": "TCGA-EW-A1PA-R30947",
+    "bcr_radiation_uuid": "7EF75334-1718-4EDB-A178-B2E9D80D8952",
+    "form_completion_date": {
+      "$date": 1331164800000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 11032,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": 56,
+    "radiation_therapy_started_days_to": 225,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 262,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1c"
+    },
+    "bcr_patient_uuid": "AF97E043-88CB-4F99-8F8B-9BCBCCCDF842",
+    "bcr_patient_barcode": "TCGA-EW-A2FR",
+    "bcr_radiation_barcode": "TCGA-EW-A2FR-R32312",
+    "bcr_radiation_uuid": "832B0491-C707-42CA-AFC9-E9F3E321C30E",
+    "form_completion_date": {
+      "$date": 1337731200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": null,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": null,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1d"
+    },
+    "bcr_patient_uuid": "D34471A1-B367-4F8A-B35A-C5901C4F5503",
+    "bcr_patient_barcode": "TCGA-EW-A2FS",
+    "bcr_radiation_barcode": "TCGA-EW-A2FS-R32288",
+    "bcr_radiation_uuid": "0AB7DA2D-C868-42CA-9C7C-A4C0DAD3EC9E",
+    "form_completion_date": {
+      "$date": 1337731200000
+    },
+    "radiation_therapy_type": "EXTERNAL BEAM",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6400,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 394,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 439,
+    "treatment_best_response": null,
+    "course_number": 1,
+    "radiation_type_other": null,
+    "therapy_regimen": "ADJUVANT",
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1e"
+    },
+    "bcr_patient_uuid": "C0B7B798-3383-4A45-A455-9ECA5810739E",
+    "bcr_patient_barcode": "TCGA-EW-A3E8",
+    "bcr_radiation_barcode": "TCGA-EW-A3E8-R39993",
+    "bcr_radiation_uuid": "91E4B957-C918-4E13-B0E0-48ECCA77D430",
+    "form_completion_date": {
+      "$date": 1360281600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 60,
+    "radiation_adjuvant_units": "Gy",
+    "radiation_adjuvant_fractions_total": 30,
+    "radiation_therapy_started_days_to": 165,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 196,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a1f"
+    },
+    "bcr_patient_uuid": "BDD08EC8-8892-4273-8F21-6FDE0F23C52D",
+    "bcr_patient_barcode": "TCGA-EW-A423",
+    "bcr_radiation_barcode": "TCGA-EW-A423-R38936",
+    "bcr_radiation_uuid": "8A98C19C-07DE-43E1-8391-6975D585C793",
+    "form_completion_date": {
+      "$date": 1357257600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 52,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 162,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a20"
+    },
+    "bcr_patient_uuid": "C8F39325-5382-447C-9291-A6915FC978B8",
+    "bcr_patient_barcode": "TCGA-OL-A5D7",
+    "bcr_radiation_barcode": "TCGA-OL-A5D7-R65250",
+    "bcr_radiation_uuid": "737BD5F1-6E92-4485-96EE-BA831B7A24C9",
+    "form_completion_date": {
+      "$date": 1411516800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 134,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 550,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a21"
+    },
+    "bcr_patient_uuid": "B8A44FDF-9CB9-4123-9AB0-4BC198921FEE",
+    "bcr_patient_barcode": "TCGA-OL-A5RU",
+    "bcr_radiation_barcode": "TCGA-OL-A5RU-R65251",
+    "bcr_radiation_uuid": "22B829AF-B769-4C42-B835-9B5461DCF6FC",
+    "form_completion_date": {
+      "$date": 1411516800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 160,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 197,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a22"
+    },
+    "bcr_patient_uuid": "1D38D356-D126-4476-94D0-26616B9375B1",
+    "bcr_patient_barcode": "TCGA-OL-A5RV",
+    "bcr_radiation_barcode": "TCGA-OL-A5RV-R65257",
+    "bcr_radiation_uuid": "09E25775-2A38-48D7-8505-A90B508ACD39",
+    "form_completion_date": {
+      "$date": 1411516800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Regional site",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 202,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 249,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a23"
+    },
+    "bcr_patient_uuid": "A82D0A57-4383-473D-B334-D13B278404B1",
+    "bcr_patient_barcode": "TCGA-OL-A5RW",
+    "bcr_radiation_barcode": "TCGA-OL-A5RW-R65258",
+    "bcr_radiation_uuid": "FE53ABA6-9490-4966-8236-991863C30A5D",
+    "form_completion_date": {
+      "$date": 1411516800000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 184,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 234,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a24"
+    },
+    "bcr_patient_uuid": "35BD694D-1DD2-466F-AB27-03320614B40E",
+    "bcr_patient_barcode": "TCGA-OL-A66I",
+    "bcr_radiation_barcode": "TCGA-OL-A66I-R64843",
+    "bcr_radiation_uuid": "BD0C1305-129A-41D6-94AD-5D5CACC08ABB",
+    "form_completion_date": {
+      "$date": 1410480000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5041,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 239,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 285,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a25"
+    },
+    "bcr_patient_uuid": "AF0ACAA9-A61C-4E57-BC0D-453AD5BF193A",
+    "bcr_patient_barcode": "TCGA-OL-A66L",
+    "bcr_radiation_barcode": "TCGA-OL-A66L-R46789",
+    "bcr_radiation_uuid": "A689A4CE-EE17-4BFB-B69D-86DDFF35870F",
+    "form_completion_date": {
+      "$date": 1410480000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6080,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 71,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 120,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a26"
+    },
+    "bcr_patient_uuid": "E9002F4E-BA0B-4738-9368-DD9614A5DA8A",
+    "bcr_patient_barcode": "TCGA-OL-A66N",
+    "bcr_radiation_barcode": "TCGA-OL-A66N-R64494",
+    "bcr_radiation_uuid": "329248C5-412D-40AF-BC3D-5C54F1C54EB9",
+    "form_completion_date": {
+      "$date": 1410480000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 5040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 374,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 412,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a27"
+    },
+    "bcr_patient_uuid": "A45833E1-7CC9-4273-B408-620F74679A12",
+    "bcr_patient_barcode": "TCGA-OL-A66O",
+    "bcr_radiation_barcode": "TCGA-OL-A66O-R64492",
+    "bcr_radiation_uuid": "2489265C-022C-47F6-BFDF-9A678B41BC79",
+    "form_completion_date": {
+      "$date": 1410480000000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": 6040,
+    "radiation_adjuvant_units": "cGy",
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 77,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 121,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  },
+  {
+    "_id": {
+      "$oid": "60fd14e793e056e62e1e5a28"
+    },
+    "bcr_patient_uuid": "398FB71B-CA83-44E7-BF0D-B1CA464B0283",
+    "bcr_patient_barcode": "TCGA-OL-A6VO",
+    "bcr_radiation_barcode": "TCGA-OL-A6VO-R63547",
+    "bcr_radiation_uuid": "C53F9699-EC12-450E-A717-917D11632C0A",
+    "form_completion_date": {
+      "$date": 1407801600000
+    },
+    "radiation_therapy_type": "External",
+    "radiation_therapy_site": "Primary Tumor Field",
+    "radiation_total_dose": null,
+    "radiation_adjuvant_units": null,
+    "radiation_adjuvant_fractions_total": null,
+    "radiation_therapy_started_days_to": 156,
+    "radiation_therapy_ongoing_indicator": "NO",
+    "radiation_therapy_ended_days_to": 201,
+    "treatment_best_response": "Complete Response",
+    "course_number": null,
+    "radiation_type_other": null,
+    "therapy_regimen": null,
+    "therapy_regimen_other": null
+  }
+]
