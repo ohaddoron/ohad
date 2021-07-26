@@ -1,5 +1,6 @@
 import SimpleITK as sitk
 import numpy as np
+import skimage
 import skimage.exposure
 import streamlit as st
 from common.les_files import read_all_maps_from_les_file
