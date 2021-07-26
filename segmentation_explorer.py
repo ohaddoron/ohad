@@ -59,6 +59,8 @@ def main():
         images_to_display = st.multiselect(
             label='Dicom Images', options=dcm_dirs, default=dcm_dirs)
 
+        alpha = st.slider(label='Alpha value', min_value=0., max_value=1., value=0.6)
+
     with st.beta_container():
         for dicom_dir in images_to_display:
             st.header(dicom_dir.split('/')[-1])
@@ -74,7 +76,7 @@ def main():
                 cols[0].image(image)
 
                 cols[1].image(overlay_segmentation_on_image(
-                    segmentation_slice=segmentation_slice, image=image, header=slice_range))
+                    segmentation_slice=segmentation_slice, image=image, header=slice_range, alpha=alpha))
 
 
 if __name__ == '__main__':

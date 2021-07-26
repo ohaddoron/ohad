@@ -39,7 +39,7 @@ def get_dcm_dirs(bcr_patient_barcode: str, config_name: tp.Optional[str] = None)
 def overlay_segmentation_on_image(segmentation_slice: np.array,
                                   image: np.array,
                                   header: tp.List[tp.Tuple[int, int]],
-                                  alpha=0.4):
+                                  alpha=0.6):
     """
     Overlays a segmentation mask ontop of a dicom image. Performs on a single slice
 
@@ -65,5 +65,5 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
 
     image_2 = np.maximum(image_2, mask)
 
-    result = alpha * image + (1 - alpha) * image_2
+    result = (1 - alpha) * image + alpha * image_2
     return Image.fromarray(result.astype(np.uint8))
