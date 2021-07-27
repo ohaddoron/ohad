@@ -1,7 +1,15 @@
-from src.utils import *
-from PIL import Image
 import os
 import pickle as pkl
+from pathlib import Path
+
+import pymongo
+import pytest
+from PIL import Image
+from bson import json_util
+from common.database import get_segmentation_files
+from glob2 import glob
+
+from src.utils import *
 
 
 def test_overlay_segmentation_on_image():
@@ -17,6 +25,6 @@ def test_overlay_segmentation_on_image():
     gt = Image.open(os.path.join(resource_dir, 'result.png'))
 
     result = overlay_segmentation_on_image(
-        segmentation_slice=np.array(segmentation_slice), image=np.array(base_image), header=header, alpha=0.4)
+        segmentation_slice=np.array(segmentation_slice), image=np.array(base_image), header=header, alpha=0.6)
 
     np.testing.assert_almost_equal(np.array(gt), np.array(result))

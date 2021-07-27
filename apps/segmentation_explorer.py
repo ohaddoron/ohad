@@ -4,32 +4,22 @@ import skimage
 import skimage.exposure
 import streamlit as st
 from common.les_files import read_all_maps_from_les_file
-from common.utils import get_unique_patient_barcodes, get_series_uids
-from src.utils import connect_to_database, get_dcm_dirs, get_segmentation_files, overlay_segmentation_on_image
+from common.utils import read_dicom_images
 
-
-@st.cache
-def read_dicom_images(dicom_dir):
-    reader = sitk.ImageSeriesReader()
-    dicom_names = reader.GetGDCMSeriesFileNames(dicom_dir)
-    reader.SetFileNames(dicom_names)
-    image = reader.Execute()
-    reader = sitk.ImageSeriesReader()
-    nda = sitk.GetArrayFromImage(image)
-    return nda
+from src.utils import overlay_segmentation_on_image
+from common.database import connect_to_database, get_segmentation_files, get_dcm_dirs, get_unique_patient_barcodes, \
+    get_series_uids
 
 
 @st.cache(ttl=600)
 def get_unique_barcode_names():
-    db = connect_to_database()
-    patient_barcodes = get_unique_patient_barcodes(db['segmentation_files'])
+    patient_barcodes = get_unique_patient_barcodes(collection_name='segmentation_files')
     return patient_barcodes
 
 
 @st.cache(ttl=600)
 def get_series_uids_for_display(patient_barcode):
-    db = connect_to_database()
-    series_uids = get_series_uids(col=db['tcga_breast_radiologist_reads'], patient_barcode=patient_barcode)
+    series_uids = get_series_uids(collection_name='tcga_breast_radiologist_reads', patient_barcode=patient_barcode)
     return series_uids
 
 
@@ -66,7 +56,7 @@ def main():
         for dicom_dir in images_to_display:
             st.header(dicom_dir.split('/')[-1])
 
-            images = read_dicom_images(dicom_dir)
+            images = st.cache(read_dicom_images)(dicom_dir)
             for image, segmentation_slice in zip(images[slice_range[2][0]:slice_range[2][1] + 1], segmentation_slices):
                 cols = st.beta_columns(2)
 
