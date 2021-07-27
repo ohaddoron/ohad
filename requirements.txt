@@ -1,3 +1,5 @@
+-f https://download.pytorch.org/whl/torch_stable.html
+git+https://github.com/ohaddoron/common.git
 loguru==0.5.3
 numpy==1.21.1
 Pillow==8.3.1
@@ -8,4 +10,6 @@ SimpleITK==2.1.0
 streamlit==0.85.0
 mongoengine==0.23.1
 glob2==0.7
-git+https://github.com/ohaddoron/common.git
+torch==1.9.0+cu111
+torchvision==0.10.0+cu111
+torchaudio===0.9.0
