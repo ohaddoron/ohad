@@ -1,13 +1,4 @@
-import os
 import pickle as pkl
-from pathlib import Path
-
-import pymongo
-import pytest
-from PIL import Image
-from bson import json_util
-from common.database import get_segmentation_files
-from glob2 import glob
 
 from src.utils import *
 
