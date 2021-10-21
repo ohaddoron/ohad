@@ -1,5 +1,7 @@
 from functools import lru_cache
 
+import pandas as pd
+import pymongo.database
 from common import config
 import os
 from loguru import logger
@@ -8,6 +10,7 @@ from PIL import Image
 import typing as tp
 import numpy as np
 import cv2
+from tqdm import tqdm
 
 
 @lru_cache
@@ -48,3 +51,36 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
 
     result = (1 - alpha) * image + alpha * image_2
     return Image.fromarray(result.astype(np.uint8))
+
+def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataFrame, patients: tp.List[str]):
+    """Parses a dataframe from disk into mongodb with the following convention:
+
+    .. code-block:: json
+        {
+            patient: <patient_name>,
+            name: <feature_name>,
+            value: <feature_value>
+        }
+
+    The function will parse 1e6 entries and insert them to the database rather than inserting each one to conserve time.
+
+    :param col: pymongo collection object to insert data into
+    :type col: pymongo.collection.Collection
+    :param df: dataframe to read rows from. Should be sorted such that the first item in each row is the feature value
+    :type df: dask.dataframe.Dataframe
+    :param patients: list of patient identification barcodes
+    :type patients: tp.List[str]
+    :return:
+    """
+    aggregator = []
+
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        assert isinstance(row[0], str), 'first item in each row must be the feature name'
+        for patient, value in zip(patients, row[1:]):
+            assert isinstance(value, float), 'Values must be floating point objects'
+
+            aggregator.append({"patient": patient, "name": row[0], "value": value})
+            if (len(aggregator) % 100000) == 0:
+                col.insert_many(aggregator)
+                # logger.info(f'Inserted {len(x.inserted_ids)} documents')
+                aggregator = []
