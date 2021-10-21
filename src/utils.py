@@ -77,7 +77,7 @@ def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataF
     for i, row in tqdm(df.iterrows(), total=len(df)):
         assert isinstance(row[0], str), 'first item in each row must be the feature name'
         for patient, value in zip(patients, row[1:]):
-            assert isinstance(value, float), f'Values must be floating point objects, got instead: {value}'
+            assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
 
             aggregator.append({"patient": patient, "name": row[0], "value": value})
             if (len(aggregator) % 100000) == 0:
