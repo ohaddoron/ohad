@@ -6,20 +6,21 @@ import streamlit as st
 from common.les_files import read_all_maps_from_les_file
 from common.utils import read_dicom_images
 
-from src.utils import overlay_segmentation_on_image
-from common.database import connect_to_database, get_segmentation_files, get_dcm_dirs, get_unique_patient_barcodes, \
-    get_series_uids
+from src.database import get_segmentation_files, get_dcm_dirs, get_unique_patient_barcodes, get_series_uids
+from src.utils import overlay_segmentation_on_image, get_config
+from common.database import connect_to_database
 
+db_config = get_config('brca-database')
 
 @st.cache(ttl=600)
 def get_unique_barcode_names():
-    patient_barcodes = get_unique_patient_barcodes(collection_name='segmentation_files')
+    patient_barcodes = get_unique_patient_barcodes(collection_name='segmentation_files', db_config=db_config)
     return patient_barcodes
 
 
 @st.cache(ttl=600)
 def get_series_uids_for_display(patient_barcode):
-    series_uids = get_series_uids(collection_name='tcga_breast_radiologist_reads', patient_barcode=patient_barcode)
+    series_uids = get_series_uids(collection_name='tcga_breast_radiologist_reads', patient_barcode=patient_barcode, db_config=db_config)
     return series_uids
 
 
@@ -29,10 +30,10 @@ def main():
             label='Patient barcode', options=get_unique_barcode_names())
 
         segmentation_file = get_segmentation_files(
-            bcr_patient_barcode=patient_barcode)[0]
+            bcr_patient_barcode=patient_barcode, db_config=db_config)[0]
 
         series_uids = get_series_uids_for_display(patient_barcode)
-        dcm_dirs = get_dcm_dirs(bcr_patient_barcode=patient_barcode)
+        dcm_dirs = get_dcm_dirs(bcr_patient_barcode=patient_barcode, db_config=db_config)
 
         dirs_to_use = []
         for series_uid in series_uids:
