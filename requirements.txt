@@ -18,7 +18,6 @@ charset-normalizer==2.0.7
 click==7.1.2
 cloudpickle==2.0.0
 colorama==0.4.4
-common @ git+https://github.com/ohaddoron/common.git@bcb659869f8922f1fa4ddbf687ad446790db2886
 cycler==0.10.0
 dask==2021.9.1
 debugpy==1.5.1
