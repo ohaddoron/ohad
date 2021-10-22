@@ -18,7 +18,7 @@ def main(col_name: str, file_path: str, num_rows_to_parse_before_dump: int = 100
     db[col_name].drop()
     db[col_name].create_index([('patient',  1)])
     db[col_name].create_index([('name',  1)])
-    db[col_name].create_index([('patient',  1), ('name', 1)])
+    db[col_name].create_index([('patient',  1), ('name', 1)], unique=True)
 
     df = dd.read_csv(file_path, sep='\t', sample=2560000)
     patients = df.columns[1:]
