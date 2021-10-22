@@ -52,7 +52,7 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
     result = (1 - alpha) * image + alpha * image_2
     return Image.fromarray(result.astype(np.uint8))
 
-def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataFrame, patients: tp.List[str]):
+def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataFrame, patients: tp.List[str], num_rows_to_parse_before_dump: int = 100000):
     """Parses a dataframe from disk into mongodb with the following convention:
 
     .. code-block:: json
@@ -80,7 +80,7 @@ def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataF
             assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
 
             aggregator.append({"patient": patient, "name": row[0], "value": value})
-            if (len(aggregator) % 100000) == 0:
+            if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
                 col.insert_many(aggregator)
                 # logger.info(f'Inserted {len(x.inserted_ids)} documents')
                 aggregator = []
