@@ -58,7 +58,6 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
 
 def parse_file_to_database(file_name: str,
                            col_name: str,
-                           patients: tp.List[str],
                            num_rows_to_parse_before_dump: int = 100000,
                            config_name: tp.Optional[str] = 'omics-database',
                            create_index: tp.Optional[bool] = True
@@ -93,6 +92,7 @@ def parse_file_to_database(file_name: str,
         filepath_or_buffer=file_name,
         sep='\t'
     )
+    patients = df.columns[1:]
 
     logger.debug(df.head())
 
@@ -116,3 +116,5 @@ def parse_file_to_database(file_name: str,
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
                 col.insert_many(aggregator)
                 aggregator = []
+    if aggregator:
+        col.insert_many(aggregator)
