@@ -15,6 +15,7 @@ import numpy as np
 import cv2
 from tqdm import tqdm
 from loguru import logger
+from dask import dataframe as dd
 
 
 @lru_cache
@@ -89,7 +90,7 @@ def parse_file_to_database(file_name: str,
 
     logger.debug(f'Using config: {toml.dumps(config)}')
 
-    df = pd.read_csv(
+    df = dd.read_csv(
         filepath_or_buffer=file_name,
         sep='\t'
     )
