@@ -14,6 +14,7 @@ import typing as tp
 import numpy as np
 import cv2
 from tqdm import tqdm
+from loguru import logger
 
 
 @lru_cache
@@ -102,7 +103,7 @@ def parse_file_to_database(file_name: str,
     if create_index:
         col.create_index([('patient', 1)])
         col.create_index([('name', 1)])
-        col.create_index([('patient', 1), ('name', 1)], unique=True)
+        col.create_index([('patient', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
 
         logger.debug(f'Collection indexes: {col.index_information()}')
     aggregator = []
@@ -110,11 +111,14 @@ def parse_file_to_database(file_name: str,
     for i, row in tqdm(df.iterrows(), total=len(df)):
         assert isinstance(row[0], str), 'first item in each row must be the feature name'
         for patient, value in zip(patients, row[1:]):
-            assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
+            if 'chr' in df.columns.to_list():
+                pass
+            else:
+                assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
 
             aggregator.append({"patient": patient, "name": row[0], "value": value})
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
-                col.insert_many(aggregator)
+                col.insert_many(aggregator, bypass_document_validation=True)
                 aggregator = []
     if aggregator:
-        col.insert_many(aggregator)
+        col.insert_many(aggregator, bypass_document_validation=True)
