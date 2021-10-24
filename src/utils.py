@@ -2,6 +2,9 @@ from functools import lru_cache
 
 import pandas as pd
 import pymongo.database
+import toml
+from pymongo.collection import Collection
+
 from common import config
 import os
 from loguru import logger
@@ -52,7 +55,14 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
     result = (1 - alpha) * image + alpha * image_2
     return Image.fromarray(result.astype(np.uint8))
 
-def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataFrame, patients: tp.List[str], num_rows_to_parse_before_dump: int = 100000):
+
+def parse_file_to_database(file_name: str,
+                           col_name: str,
+                           patients: tp.List[str],
+                           num_rows_to_parse_before_dump: int = 100000,
+                           config_name: tp.Optional[str] = 'omics-database',
+                           create_index: tp.Optional[bool] = True
+                           ):
     """Parses a dataframe from disk into mongodb with the following convention:
 
     .. code-block:: json
@@ -72,6 +82,29 @@ def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataF
     :type patients: tp.List[str]
     :return:
     """
+
+    config = get_config(config_name)
+    db = init_cached_database(parse_mongodb_connection_string(
+        **config), db_name=config['db_name'])
+
+    logger.debug(f'Using config: {toml.dumps(config)}')
+
+    df = pd.read_csv(
+        filepath_or_buffer=file_name,
+        sep='\t'
+    )
+
+    logger.debug(df.head())
+
+    col: Collection = db[col_name]
+    col.drop()
+
+    if create_index:
+        col.create_index([('patient', 1)])
+        col.create_index([('name', 1)])
+        col.create_index([('patient', 1), ('name', 1)], unique=True)
+
+        logger.debug(f'Collection indexes: {col.index_information()}')
     aggregator = []
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
@@ -82,5 +115,4 @@ def parse_dataframe_to_database(col: pymongo.collection.Collection, df: pd.DataF
             aggregator.append({"patient": patient, "name": row[0], "value": value})
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
                 col.insert_many(aggregator)
-                # logger.info(f'Inserted {len(x.inserted_ids)} documents')
                 aggregator = []
