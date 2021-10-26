@@ -90,10 +90,10 @@ def parse_file_to_database(file_name: str,
 
     logger.debug(f'Using config: {toml.dumps(config)}')
 
-    df = dd.read_csv(
-        filepath_or_buffer=file_name,
-        sep='\t'
-    )
+    df = dd.read_csv(file_name,
+                     sep='\t',
+                     sample=2560000
+                     )
     patients = df.columns[1:]
 
     logger.debug(df.head())
