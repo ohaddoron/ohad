@@ -128,10 +128,10 @@ for col in cols:
 
     try:
         histogram_data = histogram_aggregation(col_name=col)
-        with st.expander('Value Distribution'):
-            fig = go.Figure(
-                data=go.Bar(x=histogram_data['bin_center'], y=histogram_data['count'] / sum(histogram_data['count']),
-                            width=0.01))
-            st.plotly_chart(fig)
+        # with st.expander('Value Distribution'):
+        fig = go.Figure(
+            data=go.Bar(x=histogram_data['bin_center'], y=histogram_data['count'] / sum(histogram_data['count']),
+                        width=0.01))
+        st.plotly_chart(fig)
     except:
         pass
