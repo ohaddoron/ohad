@@ -104,7 +104,8 @@ def parse_file_to_database(file_name: str,
     if create_index:
         col.create_index([('patient', 1)])
         col.create_index([('name', 1)])
-        col.create_index([('patient', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
+        col.create_index([('patient', 1)])
+        col.create_index([('sample', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
 
         logger.debug(f'Collection indexes: {col.index_information()}')
     aggregator = []
@@ -117,7 +118,7 @@ def parse_file_to_database(file_name: str,
             else:
                 assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
 
-            aggregator.append({"patient": patient, "name": row[0], "value": value})
+            aggregator.append({"patient": patient[:12], "name": row[0], "value": value, 'sample': patient})
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
                 col.insert_many(aggregator, bypass_document_validation=True)
                 aggregator = []
