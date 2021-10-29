@@ -83,6 +83,9 @@ def parse_file_to_database(file_name: str,
     :type patients: tp.List[str]
     :return:
     """
+    import git
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
 
     config = get_config(config_name)
     db = init_cached_database(parse_mongodb_connection_string(
@@ -118,7 +121,8 @@ def parse_file_to_database(file_name: str,
             else:
                 assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
 
-            aggregator.append({"patient": patient[:12], "name": row[0], "value": value, 'sample': patient})
+            aggregator.append(
+                {"patient": patient[:12], "name": row[0], "value": value, 'sample': patient, 'version': sha})
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
                 col.insert_many(aggregator, bypass_document_validation=True)
                 aggregator = []
