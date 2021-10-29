@@ -108,7 +108,7 @@ def parse_file_to_database(file_name: str,
         col.create_index([('patient', 1)])
         col.create_index([('name', 1)])
         col.create_index([('patient', 1)])
-        col.create_index([('sample', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
+        # col.create_index([('sample', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
 
         logger.debug(f'Collection indexes: {col.index_information()}')
     aggregator = []
