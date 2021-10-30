@@ -1,8 +1,10 @@
+import math
 from functools import lru_cache
 
 import pandas as pd
 import pymongo.database
 import toml
+from pandas.errors import ParserError
 from pymongo.collection import Collection
 
 from common import config
@@ -93,13 +95,32 @@ def parse_file_to_database(file_name: str,
 
     logger.debug(f'Using config: {toml.dumps(config)}')
 
-    df = dd.read_csv(file_name,
-                     sep='\t',
-                     sample=2560000
-                     )
-    patients = df.columns[1:]
+    try:
+        df = dd.read_csv(file_name,
+                         sep='\t',
+                         sample=2560000
+                         )
+        patients = df.columns[1:]
 
-    logger.debug(df.head())
+        logger.debug(df.head())
+    except (ValueError, ParserError):
+        df = pd.read_csv(file_name,
+                         sep=',',
+                         )
+
+        if df.shape[1] == 1:
+            df = pd.read_csv(file_name,
+                             sep='\t',
+                             )
+
+        patients = df.columns[1:]
+
+        logger.debug(df.head())
+    except UnicodeDecodeError:
+        df = pd.read_excel(file_name)
+        patients = df.columns[1:]
+
+        logger.debug(df.head())
 
     col: Collection = db[col_name]
     col.drop()
@@ -114,12 +135,18 @@ def parse_file_to_database(file_name: str,
     aggregator = []
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
+        if isinstance(row[0], float) and math.isnan(row[0]):
+            continue
         assert isinstance(row[0], str), 'first item in each row must be the feature name'
         for patient, value in zip(patients, row[1:]):
             if 'chr' in df.columns.to_list():
                 pass
             else:
-                assert isinstance(value, (int, float)), f'Values must be floating point objects, got instead: {value}'
+                if isinstance(value, str):
+                    value = float(value) if value.isnumeric() else value
+                if value != 'Redacted' or col_name != 'SomaticMutationPV':
+                    assert isinstance(value,
+                                      (int, float)), f'Values must be floating point objects, got instead: {value}'
 
             aggregator.append(
                 {"patient": patient[:12], "name": row[0], "value": value, 'sample': patient, 'version': sha})
