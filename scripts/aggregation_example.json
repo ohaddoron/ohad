@@ -1,0 +1,50 @@
+[
+  {
+    "$group": {
+      "_id": "$sample",
+      "patient": {
+        "$first": "$patient"
+      },
+      "names": {
+        "$push": "$name"
+      },
+      "values": {
+        "$push": "$value"
+      }
+    }
+  },
+  {
+    "$project": {
+      "field": {
+        "$map": {
+          "input": {
+            "$zip": {
+              "inputs": [
+                "$names",
+                "$values"
+              ]
+            }
+          },
+          "as": "el",
+          "in": {
+            "name": {
+              "$arrayElemAt": [
+                "$$el",
+                0
+              ]
+            },
+            "value": {
+              "$arrayElemAt": [
+                "$$el",
+                1
+              ]
+            }
+          }
+        }
+      },
+      "patient": 1,
+      "sample": "$_id",
+      "_id": 0
+    }
+  }
+]
