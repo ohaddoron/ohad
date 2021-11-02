@@ -22,6 +22,7 @@ class ORJSONResponse(JSONResponse):
 
 
 class Document(BaseModel):
+    patient: str
     data: dict
 
 
@@ -174,7 +175,7 @@ def aggregate_db(collection, patients):
     ]
     db = init_database()
     cursor = db[collection].aggregate(ppln)
-    return list(cursor)
+    return [dict(patient=data['patient'], data=data) for data in cursor]
 
 
 @app.get('/survival', response_model=Page[Document])
