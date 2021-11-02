@@ -11,6 +11,14 @@ from starlette.responses import RedirectResponse, JSONResponse
 from aiocache import cached
 from common.database import parse_mongodb_connection_string
 from src.utils import init_cached_database, get_config
+import orjson
+
+
+class ORJSONResponse(JSONResponse):
+    media_type = "application/json"
+
+    def render(self, content: tp.Any) -> bytes:
+        return orjson.dumps(content)
 
 
 class Document(BaseModel):
@@ -21,18 +29,19 @@ class Document(BaseModel):
 class BSONResponse(JSONResponse):
     media_type = 'application/json'
 
-    def render(selfself, content: tp.Any) -> bytes:
+    def render(self, content: tp.Any) -> bytes:
         return json_util.dumps(content)
 
 
-app = FastAPI(title='Fetcher', default_response_class=BSONResponse)
+# app = FastAPI(title='Fetcher', default_response_class=BSONResponse)
+app = FastAPI(title='Fetcher', default_response_class=ORJSONResponse)
 
 
 @lru_cache
 def init_database() -> MotorDatabase:
     config = get_config('omics-database')
     db = init_cached_database(parse_mongodb_connection_string(
-        **config), db_name=config['db_name'], async_flag=True)
+        **config), db_name=config['db_name'], async_flag=False)
     return db
 
 
@@ -101,7 +110,8 @@ async def get_clinical_data(patients: tp.List[str] = Query(None)):
     return paginate(await query_db(patients))
 
 
-async def aggregate_db(collection, patients):
+@lru_cache
+def aggregate_db(collection, patients):
     ppln = [
         {
             "$match": {
@@ -164,17 +174,13 @@ async def aggregate_db(collection, patients):
         }
     ]
     db = init_database()
-    data = []
     cursor = db[collection].aggregate(ppln)
-    async for document in cursor:
-        data.append(dict(patient=document['patient'], data=data))
-
-    return data
+    return [dict(patient=data['patient'], data=data) for data in cursor]
 
 
 @app.get('/survival', response_model=Page[Document])
 async def get_survival(patients: tp.List[str] = Query(None)):
-    return paginate(await aggregate_db('Survival', patients))
+    return paginate(aggregate_db('Survival', patients))
 
 
 @app.get('/', include_in_schema=False)
