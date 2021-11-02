@@ -1,12 +1,13 @@
 import pprint
 from functools import lru_cache
 
+from bson import json_util
 from fastapi import FastAPI, Query
 from motor import MotorDatabase
 from pydantic import BaseModel
 import typing as tp
 from fastapi_pagination import Page, add_pagination, paginate
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, JSONResponse
 from aiocache import cached
 from common.database import parse_mongodb_connection_string
 from src.utils import init_cached_database, get_config
@@ -17,7 +18,14 @@ class Document(BaseModel):
     data: dict
 
 
-app = FastAPI(title='Fetcher')
+class BSONResponse(JSONResponse):
+    media_type = 'application/json'
+
+    def render(selfself, content: tp.Any) -> bytes:
+        return json_util.dumps(content)
+
+
+app = FastAPI(title='Fetcher', default_response_class=BSONResponse)
 
 
 @lru_cache
@@ -33,31 +41,54 @@ async def query_db(patients: tp.List[str]):
     db = init_database()
     data = []
     cursor = db['ClinicalData'].aggregate(
-        [{"$match": {'case_submitter_id': {"$in": patients}}} if patients else {"$match": {}},
-
+        [{
+             "$match": {
+                 'case_submitter_id':
+                     {"$in":
+                          patients
+                      }
+             }
+         } if patients else {"$match":
+                                 {}
+                             },
          {
              '$addFields': {
-                 'patient': '$case_id'
+                 'patient': '$case_submitter_id'
              }
          }, {
              '$lookup': {
                  'from': 'ClinicalBRCA1',
-                 'localField': 'patient',
+                 'localField': 'case_submitter_id',
                  'foreignField': 'case_submitter_id',
                  'as': 'BRCA1'
              }
          }, {
              '$lookup': {
-                 'from': 'ExonExpression',
-                 'localField': 'patient',
-                 'foreignField': 'patient',
-                 'as': 'ExonExpression'
+                 'from': 'GeneExpression',
+                 'localField': 'case_submitter_id',
+                 'foreignField': 'case_submitter_id',
+                 'as': 'GeneExpression'
+             }
+         }, {
+             '$addFields': {
+                 'count': {
+                     '$size': '$GeneExpression'
+                 }
+             }
+         }, {
+             '$match': {
+                 'count': {
+                     '$gt': 0
+                 }
+             }
+         }, {
+             '$project': {
+                 'count': 0
              }
          }
 
          ])
     async for document in cursor:
-        document.pop('_id')
         document['BRCA1Carrier'] = len(document['BRCA1']) > 0
         document.pop('BRCA1')
         data.append({'patient': document['case_submitter_id'], 'data': document})
@@ -65,9 +96,85 @@ async def query_db(patients: tp.List[str]):
     return data
 
 
-@app.get('/clinical_data', response_model=Page[Document])
+@app.get('/clinical_data', response_model=Page[Document], include_in_schema=False)
 async def get_clinical_data(patients: tp.List[str] = Query(None)):
     return paginate(await query_db(patients))
+
+
+async def aggregate_db(collection, patients):
+    ppln = [
+        {
+            "$match": {
+                'case_submitter_id':
+                    {"$in":
+                         patients
+                     }
+            }
+        } if patients else
+        {"$match":
+             {}
+         },
+        {
+            "$group": {
+                "_id": "$sample",
+                "patient": {
+                    "$first": "$patient"
+                },
+                "names": {
+                    "$push": "$name"
+                },
+                "values": {
+                    "$push": "$value"
+                }
+            }
+        },
+        {
+            "$project": {
+                "field": {
+                    "$map": {
+                        "input": {
+                            "$zip": {
+                                "inputs": [
+                                    "$names",
+                                    "$values"
+                                ]
+                            }
+                        },
+                        "as": "el",
+                        "in": {
+                            "name": {
+                                "$arrayElemAt": [
+                                    "$$el",
+                                    0
+                                ]
+                            },
+                            "value": {
+                                "$arrayElemAt": [
+                                    "$$el",
+                                    1
+                                ]
+                            }
+                        }
+                    }
+                },
+                "patient": 1,
+                "sample": "$_id",
+                "_id": 0
+            }
+        }
+    ]
+    db = init_database()
+    data = []
+    cursor = db[collection].aggregate(ppln)
+    async for document in cursor:
+        data.append(dict(patient=document['patient'], data=data))
+
+    return data
+
+
+@app.get('/survival', response_model=Page[Document])
+async def get_survival(patients: tp.List[str] = Query(None)):
+    return paginate(await aggregate_db('Survival', patients))
 
 
 @app.get('/', include_in_schema=False)
