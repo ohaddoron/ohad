@@ -179,7 +179,7 @@ def aggregate_db(collection, patients):
 
 
 @app.get('/survival', response_model=Page[Document])
-async def get_survival(patients: tp.List[str] = Query(None)):
+async def get_survival(patients: tp.Tuple[str] = Query(None)):
     return paginate(aggregate_db('Survival', patients))
 
 
