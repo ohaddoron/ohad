@@ -7,7 +7,7 @@ from motor import MotorDatabase
 from pydantic import BaseModel
 import typing as tp
 from fastapi_pagination import Page, add_pagination, paginate
-from starlette.responses import RedirectResponse, JSONResponse
+from starlette.responses import RedirectResponse, JSONResponse, StreamingResponse
 from aiocache import cached
 from common.database import parse_mongodb_connection_string
 from src.utils import init_cached_database, get_config
@@ -41,7 +41,7 @@ app = FastAPI(title='Fetcher', default_response_class=ORJSONResponse)
 def init_database() -> MotorDatabase:
     config = get_config('omics-database')
     db = init_cached_database(parse_mongodb_connection_string(
-        **config), db_name=config['db_name'], async_flag=False)
+        **config), db_name=config['db_name'], async_flag=True)
     return db
 
 
@@ -110,8 +110,7 @@ async def get_clinical_data(patients: tp.List[str] = Query(None)):
     return paginate(await query_db(patients))
 
 
-@lru_cache
-def aggregate_db(collection, patients):
+async def aggregate_db(collection, patients):
     ppln = [
         {
             "$match": {
@@ -175,17 +174,24 @@ def aggregate_db(collection, patients):
     ]
     db = init_database()
     cursor = db[collection].aggregate(ppln)
-    return [dict(patient=data['patient'], data=data) for data in cursor]
+    # return [dict(patient=data['patient'], data=data) for data in cursor]
+    async for item in cursor:
+        yield orjson.dumps(item).decode() + ',\n'
 
 
-@app.get('/survival', response_model=Page[Document])
+@app.get('/survival')
 async def get_survival(patients: tp.Tuple[str] = Query(None)):
-    return paginate(aggregate_db('Survival', patients))
+    return StreamingResponse(aggregate_db('Survival', patients))
 
 
 @app.get('/', include_in_schema=False)
 async def docs():
     return RedirectResponse('/docs')
+
+
+@app.get('/healthz', include_in_schema=False)
+async def healthz():
+    return dict(status=True)
 
 
 add_pagination(app)
