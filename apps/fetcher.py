@@ -7,6 +7,7 @@ from motor import MotorDatabase
 from pydantic import BaseModel
 import typing as tp
 from fastapi_pagination import Page, add_pagination, paginate
+from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.responses import RedirectResponse, JSONResponse, StreamingResponse
 from aiocache import cached
 from common.database import parse_mongodb_connection_string
@@ -180,8 +181,8 @@ async def aggregate_db(collection, patients):
 
 
 @app.get('/survival')
-async def get_survival(patients: tp.Tuple[str] = Query(None)):
-    return StreamingResponse(aggregate_db('Survival', patients))
+async def get_survival(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
+    return StreamingResponse(aggregate_db('Survival', patients), background=background_task)
 
 
 @app.get('/', include_in_schema=False)
