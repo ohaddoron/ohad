@@ -182,12 +182,14 @@ async def aggregate_db(collection, patients):
 
 @app.get('/survival')
 async def get_survival(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
-    return StreamingResponse(aggregate_db('Survival', patients), background=background_task)
+    return StreamingResponse(aggregate_db('Survival', patients), background=background_task,
+                             media_type='application/json')
 
 
 @app.get('/copy_number')
 async def get_survival(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
-    return StreamingResponse(aggregate_db('CopyNumber', patients), background=background_task)
+    return StreamingResponse(aggregate_db('CopyNumber', patients), background=background_task,
+                             media_type='application/json')
 
 
 @app.get('/', include_in_schema=False)
