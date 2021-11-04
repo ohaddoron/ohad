@@ -174,7 +174,7 @@ async def aggregate_db(collection, patients):
         }
     ]
     db = init_database()
-    cursor = db[collection].aggregate(ppln)
+    cursor = db[collection].aggregate(ppln, allowDiskUse=True)
     # return [dict(patient=data['patient'], data=data) for data in cursor]
     async for item in cursor:
         yield orjson.dumps(item).decode() + ',\n'
@@ -183,6 +183,11 @@ async def aggregate_db(collection, patients):
 @app.get('/survival')
 async def get_survival(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
     return StreamingResponse(aggregate_db('Survival', patients), background=background_task)
+
+
+@app.get('/copy_number')
+async def get_survival(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
+    return StreamingResponse(aggregate_db('CopyNumber', patients), background=background_task)
 
 
 @app.get('/', include_in_schema=False)
