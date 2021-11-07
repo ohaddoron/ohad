@@ -197,6 +197,12 @@ async def docs():
     return RedirectResponse('/docs')
 
 
+@app.get('/clinical_data')
+async def get_clinical_data(background_task: BackgroundTasks, patients: tp.Tuple[str] = Query(None)):
+    return StreamingResponse(aggregate_db('ClinicalData', patients), background=background_task,
+                             media_type='application/json')
+
+
 @app.get('/healthz', include_in_schema=False)
 async def healthz():
     return dict(status=True)
