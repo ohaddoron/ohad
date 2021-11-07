@@ -106,9 +106,9 @@ async def query_db(patients: tp.List[str]):
     return data
 
 
-@app.get('/clinical_data', response_model=Page[Document], include_in_schema=False)
-async def get_clinical_data(patients: tp.List[str] = Query(None)):
-    return paginate(await query_db(patients))
+# @app.get('/clinical_data', response_model=Page[Document], include_in_schema=False)
+# async def get_clinical_data(patients: tp.List[str] = Query(None)):
+#     return paginate(await query_db(patients))
 
 
 async def aggregate_db(collection, patients):
