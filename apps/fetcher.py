@@ -54,10 +54,10 @@ app = FastAPI(title='Fetcher', default_response_class=ORJSONResponse)
 
 
 @lru_cache
-def init_database() -> MotorDatabase:
+def init_database(async_flag=True) -> MotorDatabase:
     config = get_config('omics-database')
     db = init_cached_database(parse_mongodb_connection_string(
-        **config), db_name=config['db_name'], async_flag=True)
+        **config), db_name=config['db_name'], async_flag=async_flag)
     return db
 
 
@@ -218,6 +218,42 @@ async def get_clinical_data(background_task: BackgroundTasks, patients: tp.Tuple
                              media_type='application/json')
 
 
+async def _download_dcm_file(link: str, index: int, directory: str):
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(link)
+        async with aiofiles.open(Path(directory, f'{index}.dcm'), 'wb') as f:
+            await f.write(r.content)
+
+
+async def _fetch_image_stack(patient: str, sample_number: int):
+    patient_samples = (await get_mri_scans(patients=[patient]))[0]
+    try:
+        patient_sample = patient_samples[sample_number]
+    except IndexError:
+        raise HTTPException(f'Sample number is out of bounds for {patient}')
+    stacks_links = patient_sample['files']
+    with tempfile.TemporaryDirectory() as t:
+        tasks = [_download_dcm_file(link=link, index=index, directory=t) for index, link in enumerate(stacks_links)]
+
+        await asyncio.gather(*tasks)
+
+        dcm_image = read_dicom_images(t)
+    return dcm_image
+
+
+def _stretch_image(image: np.ndarray) -> np.ndarray:
+    image = (255 * (image / np.max(image))).astype(np.uint8)
+
+    image = (skimage.exposure.equalize_adapthist(
+        image, kernel_size=15) * 255).astype(np.uint8)
+    return image
+
+
+def _get_mri_patients():
+    db = init_database(async_flag=False)
+    return db['MRIScans'].find().distinct("patient")
+
+
 @app.get('/mri_scans', description='Draws the mri scans for the patients '
                                    'from the database. Returns a list of '
                                    'links for each patient. Links are '
@@ -264,40 +300,9 @@ async def get_mri_scans(patients: tp.Union[tp.List[str]] = Query(None)
     return [result['samples'] for result in results]
 
 
-async def _download_dcm_file(link: str, index: int, directory: str):
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(link)
-        async with aiofiles.open(Path(directory, f'{index}.dcm'), 'wb') as f:
-            await f.write(r.content)
-
-
-async def _fetch_image_stack(patient: str, sample_number: int):
-    patient_samples = (await get_mri_scans(patients=[patient]))[0]
-    try:
-        patient_sample = patient_samples[sample_number]
-    except IndexError:
-        raise HTTPException(f'Sample number is out of bounds for {patient}')
-    stacks_links = patient_sample['files']
-    with tempfile.TemporaryDirectory() as t:
-        tasks = [_download_dcm_file(link=link, index=index, directory=t) for index, link in enumerate(stacks_links)]
-
-        await asyncio.gather(*tasks)
-
-        dcm_image = read_dicom_images(t)
-    return dcm_image
-
-
-def _stretch_image(image: np.ndarray) -> np.ndarray:
-    image = (255 * (image / np.max(image))).astype(np.uint8)
-
-    image = (skimage.exposure.equalize_adapthist(
-        image, kernel_size=15) * 255).astype(np.uint8)
-    return image
-
-
 @app.get('/mri_scan_stack', description='Stacks together a single MRI stack for a single patient')
 async def get_mri_scan_stack(
-        patient: str = Query(None),
+        patient: str = Query(default=None, enum=_get_mri_patients()),
         sample_number: int = 0):
     dcm_image = await _fetch_image_stack(patient=patient, sample_number=sample_number)
     return StreamingResponse(BytesIO(pickle.dumps(dcm_image)))
@@ -305,7 +310,7 @@ async def get_mri_scan_stack(
 
 @app.get('/mri_scan_slice')
 async def get_mri_scan_slice(
-        patient: str = Query(None),
+        patient: str = Query(None, enum=_get_mri_patients()),
         sample_number: int = 0,
         slice_number: int = 0):
     dcm_image: np.ndarray = (await _fetch_image_stack(patient=patient, sample_number=sample_number))[slice_number]

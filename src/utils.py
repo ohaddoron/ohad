@@ -64,7 +64,8 @@ def parse_file_to_database(file_name: str,
                            col_name: str,
                            num_rows_to_parse_before_dump: int = 100000,
                            config_name: tp.Optional[str] = 'omics-database',
-                           create_index: tp.Optional[bool] = True
+                           create_index: tp.Optional[bool] = True,
+                           validate_values: bool = True
                            ):
     """Parses a dataframe from disk into mongodb with the following convention:
 
@@ -101,8 +102,10 @@ def parse_file_to_database(file_name: str,
                          sample=2560000
                          )
         patients = df.columns[1:]
-
+        if col_name == 'Phenotypes':
+            raise ParserError
         logger.debug(df.head())
+
     except (ValueError, ParserError):
         df = pd.read_csv(file_name,
                          sep=',',
@@ -144,7 +147,8 @@ def parse_file_to_database(file_name: str,
             else:
                 if isinstance(value, str):
                     value = float(value) if value.isnumeric() else value
-                if value != 'Redacted' or col_name != 'SomaticMutationPV':
+                if (
+                        value != 'Redacted' or col_name != 'SomaticMutationPV') and validate_values:
                     assert isinstance(value,
                                       (int, float)), f'Values must be floating point objects, got instead: {value}'
 
