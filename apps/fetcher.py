@@ -272,7 +272,8 @@ async def get_mri_scans(patients: tp.Union[tp.List[str]] = Query(None)
                 'temp': {
                     'sample': '$sample',
                     'files': '$value',
-                    'patient': '$patient'
+                    'patient': '$patient',
+                    'series_uid': "$series_uid"
                 }
             }
         }, {
