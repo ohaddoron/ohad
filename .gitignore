@@ -3,3 +3,7 @@ config.toml
 .vscode/
 .idea/
 notebooks/.ipynb_checkpoints
+notebooks/early_neg.csv
+notebooks/early_pos.csv
+notebooks/late_neg.csv
+notebooks/late_pos.csv
