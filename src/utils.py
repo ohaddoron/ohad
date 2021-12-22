@@ -98,7 +98,7 @@ def parse_file_to_database(file_name: str,
 
     try:
         df = dd.read_csv(file_name,
-                         sep='\t',
+                         sep=',',
                          sample=2560000
                          )
         patients = df.columns[1:]
@@ -108,7 +108,7 @@ def parse_file_to_database(file_name: str,
 
     except (ValueError, ParserError):
         df = pd.read_csv(file_name,
-                         sep=',',
+                         sep='\t',
                          )
 
         if df.shape[1] == 1:
