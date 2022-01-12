@@ -9,3 +9,4 @@ notebooks/late_neg.csv
 notebooks/late_pos.csv
 notebooks/playground.ipynb
 notebooks/playground.ipynb
+src/lightning_logs

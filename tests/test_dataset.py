@@ -20,8 +20,10 @@ def patients():
             'TCGA-A1-A0SF']
 
 
-def test_attribute_filler_dataset(patients):
-    ds = AttributeFillerDataset(patients=patients, collection='GeneExpression', attributes_drop_rate=0.2)
+@pytest.mark.parametrize('standardize', [True, False])
+def test_attribute_filler_dataset(patients, standardize):
+    ds = AttributeFillerDataset(patients=patients, collection='GeneExpression', attributes_drop_rate=0.2,
+                                standardize=standardize)
 
     item = ds[0]
 
@@ -29,4 +31,4 @@ def test_attribute_filler_dataset(patients):
 
     items = next(iter(dl))
 
-    assert {'attributes', 'dropped_attributes_index', 'dropped_attributes'} == set(items.keys())
+    assert {'attributes', 'dropped_attributes_index', 'dropped_attributes', 'targets'} == set(items.keys())

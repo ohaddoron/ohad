@@ -8,13 +8,15 @@ from common.database import init_database
 
 
 class AttributeFillerDataset(Dataset):
-    def __init__(self, patients: tp.List[str], collection: str, attributes_drop_rate: float = 0.2):
+    def __init__(self, patients: tp.List[str], collection: str, attributes_drop_rate: float = 0.2, standardize=True):
 
+        self._standardize = standardize
         self._collection_name = collection
         self._init_db()
         self._attributes_drop_rate = attributes_drop_rate
         self._attributes = self._collection.distinct('name')
         self._patient_samples_dict = self._get_patient_samples_dict()
+        self._standardization_dict = self._get_standardization_values()
 
         self._samples = [(patient, sample) for patient in self._patient_samples_dict.keys() for sample in
                          self._patient_samples_dict[patient]]
@@ -25,27 +27,83 @@ class AttributeFillerDataset(Dataset):
         self._db = init_database(config_name='brca-reader')
         self._collection = self._db[self._collection_name]
 
+    def _get_standardization_values(self):
+        return next(self._collection.aggregate([
+            {
+                '$group': {
+                    '_id': '$name',
+                    'avg': {
+                        '$avg': '$value'
+                    },
+                    'std': {
+                        '$stdDevPop': '$value'
+                    }
+                }
+            }, {
+                '$addFields': {
+                    'dummy': 1
+                }
+            }, {
+                '$group': {
+                    '_id': '$dummy',
+                    'data': {
+                        '$push': {
+                            'k': '$_id',
+                            'v': {
+                                'avg': '$avg',
+                                'std': '$std'
+                            }
+                        }
+                    }
+                }
+            }, {
+                '$project': {
+                    'data': {
+                        '$arrayToObject': '$data'
+                    },
+                    '_id': 0
+                }
+            }, {
+                '$replaceRoot': {
+                    'newRoot': {
+                        '$mergeObjects': [
+                            '$$ROOT', '$data'
+                        ]
+                    }
+                }
+            }, {
+                '$project': {
+                    'data': 0
+                }
+            }
+        ]))
+
     def _get_sample(self, sample):
         attributes_vec = self._get_attributes(sample=sample)
-
+        targets = attributes_vec.copy()
         drop_indices = random.sample(list(np.arange(0, len(self._attributes))),
                                      int(self._attributes_drop_rate * len(self._attributes)))
 
         for drop_ind in drop_indices:
             attributes_vec[drop_ind] = 0.
 
-        return dict(attributes=attributes_vec,
-                    dropped_attributes_index=drop_indices,
-                    dropped_attributes=[self._attributes[i] for i in drop_indices])
+        return dict(
+            targets=targets,
+            attributes=attributes_vec,
+            dropped_attributes_index=np.array(drop_indices, dtype=np.int16),
+            dropped_attributes=[self._attributes[i] for i in drop_indices])
 
     def _get_attributes(self, sample):
         raw_attributes_dict = self._get_raw_attributes(sample)
 
-        attributes_vec = np.zeros(len(self._attributes))
+        attributes_vec = np.zeros(len(self._attributes), dtype=np.float32)
 
         for i, attribute in enumerate(self._attributes):
             if attribute in raw_attributes_dict.keys():
                 attributes_vec[i] = raw_attributes_dict[attribute]
+                if self._standardize:
+                    attributes_vec[i] = (attributes_vec[i] - self._standardization_dict[attribute]['avg']) / \
+                                        (self._standardization_dict[attribute]['std'] + np.finfo(np.float32).eps)
 
         return attributes_vec
 
