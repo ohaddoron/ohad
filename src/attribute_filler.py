@@ -29,8 +29,6 @@ DEBUG = getattr(sys, 'gettrace', None)() is not None
 
 COL = 'GeneExpression'
 
-mlflow.pytorch.autolog(log_models=True)
-
 
 class AttributeFiller(LightningModule):
     def __init__(self, train_patients: List[str], val_patients: List[str], collection: str, attribute_drop_rate=0.05,
