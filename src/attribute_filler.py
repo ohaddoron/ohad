@@ -1,10 +1,12 @@
 import os
 import random
+import sys
 
+import mlflow.pytorch
 import torch.cuda
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import MLFlowLogger
+from pytorch_lightning.loggers import MLFlowLogger, TestTubeLogger, TensorBoardLogger
 from typing import *
 
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
@@ -21,8 +23,11 @@ warnings.filterwarnings("ignore")
 mlf_logger = MLFlowLogger(experiment_name="Attribute Filler",
                           tracking_uri="http://medical001-5.tau.ac.il/mlflow-server/")
 
-DEBUG = False
+DEBUG = getattr(sys, 'gettrace', None)() is not None
+
 COL = 'GeneExpression'
+
+mlflow.pytorch.autolog(log_models=True)
 
 
 class AttributeFiller(LightningModule):
@@ -118,7 +123,7 @@ class AttributeFiller(LightningModule):
 
         mse_loss = MSELoss()(targets, preds)
         l1_loss = L1Loss()(targets, preds)
-        mare = torch.mean((torch.abs(targets - preds)) / (torch.abs(preds) + torch.finfo(torch.float32).eps))
+        mare = torch.mean((torch.abs(targets - preds)) / (torch.abs(targets) + torch.finfo(torch.float32).eps))
 
         loss = mse_loss
 
@@ -150,12 +155,16 @@ def main():
     val_patients = list(set(patients) - set(train_patients))
     model = AttributeFiller(train_patients=train_patients, val_patients=val_patients, collection=COL)
 
-    trainer = Trainer(
-        # logger=mlf_logger if not DEBUG else False,
-        gpus=1 if torch.cuda.is_available() else None,
-        auto_select_gpus=True, accumulate_grad_batches=4,
-        reload_dataloaders_every_epoch=False,
-        checkpoint_callback=True)
+    with mlflow.start_run() as run:
+        trainer = Trainer(
+            # logger=mlf_logger if not DEBUG else False,
+            gpus=1 if torch.cuda.is_available() else None,
+            auto_select_gpus=True, accumulate_grad_batches=4,
+            reload_dataloaders_every_epoch=False, max_epochs=int(1e5),
+            logger=True if not DEBUG else False,
+            checkpoint_callback=True,
+            # resume_from_checkpoint='lightning_logs/version_9/checkpoints/epoch=999-step=75999.ckpt'
+        )
 
     trainer.fit(model)
 

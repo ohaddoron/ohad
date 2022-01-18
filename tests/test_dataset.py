@@ -22,7 +22,7 @@ def patients():
 
 @pytest.mark.parametrize('standardize', [True, False])
 def test_attribute_filler_dataset(patients, standardize):
-    ds = AttributeFillerDataset(patients=patients, collection='GeneExpression', attributes_drop_rate=0.2,
+    ds = AttributeFillerDataset(patients=patients, collection_name='GeneExpression', attributes_drop_rate=0.2,
                                 standardize=standardize)
 
     item = ds[0]
