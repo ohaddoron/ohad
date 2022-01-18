@@ -154,7 +154,8 @@ class WANDBModelCheckpoint(ModelCheckpoint):
             self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
     ) -> Dict[str, Any]:
         out = super().on_save_checkpoint(trainer, pl_module, checkpoint)
-        wandb.save(self.last_model_path)
+        if self.last_model_path:
+            wandb.save(self.last_model_path)
         return out
 
 

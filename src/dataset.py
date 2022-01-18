@@ -15,7 +15,6 @@ class BaseDataset(Dataset):
         self.patients = patients
         self.init_db()
         self.samples = self.define_samples()
-        self.define_samples()
 
     def init_db(self):
         self._db = init_database(config_name='brca-reader')
