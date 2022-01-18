@@ -1,24 +1,27 @@
 import random
 import typing as tp
 from abc import abstractmethod
+from functools import lru_cache
 
 import numpy as np
 from torch.utils.data import Dataset
 
 from common.database import init_database
+from src.logger import logger
 
 
 class BaseDataset(Dataset):
     def __init__(self, patients: tp.List[str]):
         self.patients = patients
         self.init_db()
-        self._samples = self.define_samples()
+        self.samples = self.define_samples()
         self.define_samples()
 
     def init_db(self):
         self._db = init_database(config_name='brca-reader')
 
     def get_standardization_values(self, collection: str) -> tp.Dict[str, tp.Dict[str, float]]:
+        logger.info('Getting standardization values')
         return next(self._db[collection].aggregate([
             {
                 '$group': {
@@ -70,6 +73,8 @@ class BaseDataset(Dataset):
         ]))
 
     def _get_patient_samples_dict(self, patients, collection):
+        logger.info('Getting patient`s samples')
+
         return next(self._db[collection].aggregate([
             {
                 '$match': {
@@ -125,6 +130,7 @@ class BaseDataset(Dataset):
         )
         )
 
+    @lru_cache
     def _get_raw_attributes(self, collection: str, sample: str):
         return next(self._db[collection].aggregate([
             {
@@ -198,7 +204,9 @@ class BaseDataset(Dataset):
     def get_sample(self, sample: str) -> dict:
         ...
 
-    def get_standardization_dict(self, collection, patients: tp.List[str]):
+    def get_standardization_dict(self, collection, patients: tp.List[str]) -> tp.Dict[str, tp.Dict[str, float]]:
+        logger.info('Getting standardization values')
+
         return next(self._db[collection].aggregate(
             [
                 {
@@ -257,7 +265,7 @@ class BaseDataset(Dataset):
             ], allowDiskUse=True))
 
     def __len__(self):
-        return len(self._samples)
+        return len(self.samples)
 
 
 class AttributeFillerDataset(BaseDataset):
@@ -309,10 +317,10 @@ class AttributeFillerDataset(BaseDataset):
         )
 
     def __len__(self):
-        return len(self._samples)
+        return len(self.samples)
 
     def __getitem__(self, item):
-        return self.get_sample(self._samples[item][-1])
+        return self.get_sample(self.samples[item][-1])
 
     def define_samples(self):
         patient_samples_dict = self._get_patient_samples_dict(patients=self.patients, collection=self._collection_name)
@@ -322,5 +330,37 @@ class AttributeFillerDataset(BaseDataset):
 
 class MultiOmicsDataset(BaseDataset):
     def __init__(self, patients: tp.List[str], collections: tp.List[str]):
+        self._collections = collections
+
         super().__init__(patients)
-        
+
+        self.standardization_dicts = self.get_standardization_dict_multiple_collections(collections=collections,
+                                                                                        patients=patients)
+
+    def get_standardization_dict_multiple_collections(self, collections: tp.List[str], patients: tp.List[str]) -> \
+            tp.Dict[str, tp.Dict[str, tp.Dict[str, float]]]:
+        return {col: self.get_standardization_dict(collection=col, patients=patients) for col in collections}
+
+    def define_samples(self) -> tp.List[tp.Any]:
+        patients_samples_dict = {col: self._get_patient_samples_dict(patients=self.patients, collection=col) for col in
+                                 self._collections}
+        samples = []
+        for col in self._collections[:-1]:
+            for col_ in self._collections[1:]:
+                for patient in self.patients:
+                    _patients = self.patients.copy()
+                    _patients.remove(patient)
+
+                    r_col = random.choice(self._collections)
+                    samples.append(
+                        (
+                            (random.choice(patients_samples_dict[col][patient]), col),
+                            (random.choice(patients_samples_dict[col_][patient]), col_),
+                            (
+                                random.choice(patients_samples_dict[r_col][random.choice(_patients)]),
+                                r_col
+                            )
+                        )
+                    )
+
+        return samples

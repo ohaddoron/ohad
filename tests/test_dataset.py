@@ -1,7 +1,7 @@
 import pytest
 from torch.utils.data import DataLoader
 
-from src.dataset import AttributeFillerDataset
+from src.dataset import AttributeFillerDataset, MultiOmicsDataset
 
 
 @pytest.fixture
@@ -32,3 +32,17 @@ def test_attribute_filler_dataset(patients, standardize):
     items = next(iter(dl))
 
     assert {'attributes', 'dropped_attributes_index', 'dropped_attributes', 'targets'} == set(items.keys())
+
+
+class TestMultiOmicsDataset:
+    @pytest.fixture
+    def ds(self, patients):
+        return MultiOmicsDataset(patients=patients, collections=['GeneExpression', 'CopyNumber'])
+
+    def test_get_standardization_dict_multiple_collections(self, ds: MultiOmicsDataset):
+        assert isinstance(ds.standardization_dicts, dict)
+        assert {'GeneExpression', 'CopyNumber'} - set(ds.standardization_dicts.keys()) == set()
+
+    def test_define_samples(self, ds: MultiOmicsDataset):
+        assert all([len(sample) == 3 for sample in ds.samples])
+        assert len(ds.samples) == 12

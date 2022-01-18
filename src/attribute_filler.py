@@ -5,11 +5,12 @@ from pathlib import Path
 
 import mlflow.pytorch
 import torch.cuda
+import wandb
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import MLFlowLogger, TestTubeLogger, TensorBoardLogger, WandbLogger
 from typing import *
-
+import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from torch import nn
 from torch.nn import MSELoss, L1Loss
@@ -102,7 +103,8 @@ class AttributeFiller(LightningModule):
                                            collection_name=self._collection),
             batch_size=self._batch_size,
             num_workers=os.cpu_count(),
-            shuffle=True
+            shuffle=True,
+            drop_last=True
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -128,10 +130,10 @@ class AttributeFiller(LightningModule):
         loss = mse_loss
 
         # loss = MSELoss()(out, batch['targets'])
-        self.log(f'{purpose}_loss', loss, on_step=False, on_epoch=True, logger=True)
-        self.log(f'{purpose}_l1', l1_loss, on_step=False, on_epoch=True, logger=True)
-        self.log(f'{purpose}_l2', mse_loss, on_step=False, on_epoch=True, logger=True)
-        self.log(f'{purpose}_mare', mare, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/loss', loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/l1', l1_loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/l2', mse_loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/mare', mare, on_step=False, on_epoch=True, logger=True)
         return dict(loss=loss)
 
     def forward(self, x) -> Any:
@@ -147,6 +149,15 @@ class AttributeFiller(LightningModule):
         return Adam(self.parameters(), lr=self._lr)
 
 
+class WANDBModelCheckpoint(ModelCheckpoint):
+    def on_save_checkpoint(
+            self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        out = super().on_save_checkpoint(trainer, pl_module, checkpoint)
+        wandb.save(self.last_model_path)
+        return out
+
+
 def main():
     db = init_database('brca-reader')
     patients = db[COL].distinct('patient')
@@ -160,10 +171,12 @@ def main():
         gpus=1 if torch.cuda.is_available() else None,
         auto_select_gpus=True, accumulate_grad_batches=4,
         reload_dataloaders_every_epoch=False, max_epochs=int(1e5),
+        callbacks=[WANDBModelCheckpoint()],
         logger=[wandb_logger,
-                TensorBoardLogger(Path(Path(__file__).parent, 'lightning_logs').as_posix())] if not DEBUG else False,
+                TensorBoardLogger(
+                    Path(Path(__file__).parent, 'lightning_logs', name='').as_posix())] if not DEBUG else False,
         checkpoint_callback=True,
-        # resume_from_checkpoint='lightning_logs/version_9/checkpoints/epoch=999-step=75999.ckpt'
+        resume_from_checkpoint='lightning_logs/version_10/checkpoints/epoch=3194-step=146969.ckpt' if not DEBUG else None
     )
 
     trainer.fit(model)

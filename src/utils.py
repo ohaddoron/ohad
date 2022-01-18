@@ -98,7 +98,7 @@ def parse_file_to_database(file_name: str,
 
     try:
         df = dd.read_csv(file_name,
-                         sep=',',
+                         sep='\t',
                          sample=2560000
                          )
         patients = df.columns[1:]
