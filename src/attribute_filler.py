@@ -166,6 +166,8 @@ def main():
     val_patients = list(set(patients) - set(train_patients))
     model = AttributeFiller(train_patients=train_patients, val_patients=val_patients, collection=COL)
 
+    checkpoint_path = 'lightning_logs/version_10/checkpoints/epoch=3194-step=146969.ckpt'
+
     trainer = Trainer(
         # logger=mlf_logger if not DEBUG else False,
         gpus=1 if torch.cuda.is_available() else None,
@@ -176,7 +178,7 @@ def main():
                 TensorBoardLogger(
                     Path(Path(__file__).parent, 'lightning_logs', name='').as_posix())] if not DEBUG else False,
         checkpoint_callback=True,
-        resume_from_checkpoint='lightning_logs/version_10/checkpoints/epoch=3194-step=146969.ckpt' if not DEBUG else None
+        resume_from_checkpoint=checkpoint_path if Path(checkpoint_path).exists() and not DEBUG else None
     )
 
     trainer.fit(model)
