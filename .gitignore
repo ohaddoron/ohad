@@ -10,3 +10,4 @@ notebooks/late_pos.csv
 notebooks/playground.ipynb
 notebooks/playground.ipynb
 src/lightning_logs
+src/wandb
