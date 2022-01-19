@@ -1,8 +1,10 @@
+import json
 import math
 import random
 import typing as tp
 from abc import abstractmethod
 from functools import lru_cache
+from pathlib import Path
 
 import diskcache
 import numpy as np
@@ -18,15 +20,13 @@ cache: diskcache.Cache
 class BaseDataset(Dataset):
     def __init__(self, patients: tp.List[str]):
         self.patients = patients
-        self.init_db()
+        # self.init_db()
         self.samples = self.define_samples()
-
-    def init_db(self):
-        self._db = init_database(config_name='brca-reader')
 
     def get_standardization_values(self, collection: str) -> tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
-        return next(self._db[collection].aggregate([
+        db = init_database(config_name='brca-reader')
+        return next(db[collection].aggregate([
             {
                 '$group': {
                     '_id': '$name',
@@ -78,8 +78,8 @@ class BaseDataset(Dataset):
 
     def _get_patient_samples_dict(self, patients: tp.List[str], collection: str):
         logger.info('Getting patient`s samples')
-
-        items: dict = next(self._db[collection].aggregate([
+        db = init_database(config_name='brca-reader')
+        items: dict = next(db[collection].aggregate([
             {
                 '$group': {
                     '_id': '$patient',
@@ -130,7 +130,8 @@ class BaseDataset(Dataset):
         return {key: value for key, value in items.items() if key in patients}
 
     def _get_raw_attributes(self, collection: str, sample: str):
-        return next(self._db[collection].aggregate([
+        db = init_database(config_name='brca-reader')
+        return next(db[collection].aggregate([
             {
                 '$match': {
                     'sample': sample
@@ -179,7 +180,8 @@ class BaseDataset(Dataset):
         ]))
 
     def _get_collection_attributes(self, collection: str):
-        return self._db[collection].distinct('name')
+        db = init_database(config_name='brca-reader')
+        return db[collection].distinct('name')
 
     @abstractmethod
     def get_attributes(self, sample, collection_name: str):
@@ -206,7 +208,8 @@ class BaseDataset(Dataset):
         logger.info('Getting standardization values')
         logger.warning(
             'Ignoring patient names when fetching standardization values - this should be transferred elsewhere')
-        return next(self._db[collection].aggregate(
+        db = init_database(config_name='brca-reader')
+        return next(db[collection].aggregate(
             [
                 {
                     '$group': {
@@ -274,7 +277,8 @@ class AttributeFillerDataset(BaseDataset):
         super(AttributeFillerDataset, self).__init__(patients=patients)
         self._standardization_dict = self.get_standardization_dict(collection=collection_name, patients=patients)
 
-        self._attributes = self._db[collection_name].distinct('name')
+        db = init_database(config_name='brca-reader')
+        self._attributes = db[collection_name].distinct('name')
 
         self._all_raw_attributes = self._get_all_raw_attributes()
 
@@ -329,7 +333,11 @@ class AttributeFillerDataset(BaseDataset):
                 patient_samples_dict[patient]]
 
     def _get_all_raw_attributes(self):
-        return list(self._db[self._collection_name].aggregate([
+        raw_attributes_file = Path(Path(__file__).parent, '../resources/gene_expression_attributes.json')
+        if raw_attributes_file.exists():
+            return json.load(raw_attributes_file.open('r'))
+        db = init_database(config_name='brca-reader')
+        items = list(db[self._collection_name].aggregate([
             {
                 '$group': {
                     '_id': '$sample',
@@ -371,6 +379,8 @@ class AttributeFillerDataset(BaseDataset):
                 }
             }
         ], allowDiskUse=True))
+        json.dump(items, raw_attributes_file.open('w'), indent=2)
+        return items
 
 
 class MultiOmicsDataset(BaseDataset):
