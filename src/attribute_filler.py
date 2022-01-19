@@ -174,12 +174,12 @@ def main():
         gpus=1 if torch.cuda.is_available() else None,
         auto_select_gpus=True, accumulate_grad_batches=4,
         reload_dataloaders_every_epoch=False, max_epochs=int(1e5),
-        callbacks=[WANDBModelCheckpoint()],
         logger=[wandb_logger,
                 TensorBoardLogger(
                     Path(Path(__file__).parent, 'lightning_logs', name='').as_posix())] if not DEBUG else False,
         checkpoint_callback=True,
-        resume_from_checkpoint=checkpoint_path if Path(checkpoint_path).exists() and not DEBUG else None
+        profiler='simple',
+        # resume_from_checkpoint=checkpoint_path if Path(checkpoint_path).exists() and not DEBUG else None
     )
 
     trainer.fit(model)

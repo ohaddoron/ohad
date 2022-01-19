@@ -1,13 +1,18 @@
+import math
 import random
 import typing as tp
 from abc import abstractmethod
 from functools import lru_cache
 
+import diskcache
 import numpy as np
 from torch.utils.data import Dataset
 
 from common.database import init_database
 from src.logger import logger
+from src.cache import cache
+
+cache: diskcache.Cache
 
 
 class BaseDataset(Dataset):
@@ -71,17 +76,11 @@ class BaseDataset(Dataset):
             }
         ]))
 
-    def _get_patient_samples_dict(self, patients, collection):
+    def _get_patient_samples_dict(self, patients: tp.List[str], collection: str):
         logger.info('Getting patient`s samples')
 
-        return next(self._db[collection].aggregate([
+        items: dict = next(self._db[collection].aggregate([
             {
-                '$match': {
-                    'patient': {
-                        '$in': patients
-                    }
-                }
-            }, {
                 '$group': {
                     '_id': '$patient',
                     'samples': {
@@ -128,8 +127,8 @@ class BaseDataset(Dataset):
         ], allowDiskUse=True
         )
         )
+        return {key: value for key, value in items.items() if key in patients}
 
-    @lru_cache
     def _get_raw_attributes(self, collection: str, sample: str):
         return next(self._db[collection].aggregate([
             {
@@ -205,26 +204,21 @@ class BaseDataset(Dataset):
 
     def get_standardization_dict(self, collection, patients: tp.List[str]) -> tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
-
+        logger.warning(
+            'Ignoring patient names when fetching standardization values - this should be transferred elsewhere')
         return next(self._db[collection].aggregate(
             [
                 {
-                    '$match': {
-                        'patient': {
-                            '$in': patients
+                    '$group': {
+                        '_id': '$name',
+                        'avg': {
+                            '$avg': '$value'
+                        },
+                        'std': {
+                            '$stdDevPop': '$value'
                         }
                     }
                 }, {
-                '$group': {
-                    '_id': '$name',
-                    'avg': {
-                        '$avg': '$value'
-                    },
-                    'std': {
-                        '$stdDevPop': '$value'
-                    }
-                }
-            }, {
                 '$addFields': {
                     'dummy': 1
                 }
@@ -282,20 +276,28 @@ class AttributeFillerDataset(BaseDataset):
 
         self._attributes = self._db[collection_name].distinct('name')
 
+        self._all_raw_attributes = self._get_all_raw_attributes()
+
     def init_db(self):
         super().init_db()
 
     def get_attributes(self, sample, collection_name: str):
-        raw_attributes_dict = self._get_raw_attributes(sample=sample, collection=collection_name)
+        # raw_attributes_dict = self._get_raw_attributes(sample=sample, collection=collection_name)
+        raw_attributes_dict: dict = [item for item in self._all_raw_attributes if item['sample'] == sample][0].copy()
+        raw_attributes_dict.pop('sample')
 
         attributes_vec = np.zeros(len(self._get_collection_attributes(collection=collection_name)), dtype=np.float32)
 
-        for i, attribute in enumerate(self._get_raw_attributes(collection=collection_name, sample=sample)):
+        for i, attribute in enumerate(self._attributes):
             if attribute in raw_attributes_dict.keys():
                 attributes_vec[i] = raw_attributes_dict[attribute]
                 if self._standardize:
+                    if math.isnan(self._standardization_dict[attribute]['std']):
+                        attributes_vec[i] = 0
+                        continue
                     attributes_vec[i] = (attributes_vec[i] - self._standardization_dict[attribute]['avg']) / \
                                         (self._standardization_dict[attribute]['std'] + np.finfo(np.float32).eps)
+                    a = 1
 
         return attributes_vec
 
@@ -325,6 +327,50 @@ class AttributeFillerDataset(BaseDataset):
         patient_samples_dict = self._get_patient_samples_dict(patients=self.patients, collection=self._collection_name)
         return [(patient, sample) for patient in patient_samples_dict.keys() for sample in
                 patient_samples_dict[patient]]
+
+    def _get_all_raw_attributes(self):
+        return list(self._db[self._collection_name].aggregate([
+            {
+                '$group': {
+                    '_id': '$sample',
+                    'data': {
+                        '$push': {
+                            'k': '$name',
+                            'v': '$value'
+                        }
+                    },
+                    'patient': {
+                        '$push': '$patient'
+                    }
+                }
+            }, {
+                '$project': {
+                    'user': {
+                        '$arrayElemAt': [
+                            '$patient', 0
+                        ]
+                    },
+                    'sample': '$_id',
+                    '_id': 0,
+                    'data': {
+                        '$arrayToObject': '$data'
+                    }
+                }
+            }, {
+                '$replaceRoot': {
+                    'newRoot': {
+                        '$mergeObjects': [
+                            '$$ROOT', '$data'
+                        ]
+                    }
+                }
+            }, {
+                '$project': {
+                    'data': 0,
+                    'user': 0
+                }
+            }
+        ], allowDiskUse=True))
 
 
 class MultiOmicsDataset(BaseDataset):
