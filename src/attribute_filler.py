@@ -1,12 +1,14 @@
 import os
 import random
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import mlflow.pytorch
 import torch.cuda
 import wandb
-from pytorch_lightning import LightningModule, Trainer
+from pydantic import BaseModel
+from pytorch_lightning import LightningModule, Trainer, LightningDataModule
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import MLFlowLogger, TestTubeLogger, TensorBoardLogger, WandbLogger
 from typing import *
@@ -18,36 +20,117 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from common.database import init_database
 from src.dataset import AttributeFillerDataset
-
 import warnings
+import typing as tp
+
+from src.models import LayerDef
+from src.models.mlp import MLP
 
 warnings.filterwarnings("ignore")
+
+
 # mlf_logger = MLFlowLogger(experiment_name="Attribute Filler",
 #                           tracking_uri="http://medical001-5.tau.ac.il/mlflow-server/")
 
-wandb_logger = WandbLogger("Attribute Filler")
-DEBUG = getattr(sys, 'gettrace', None)() is not None
 
-COL = 'GeneExpression'
+@lru_cache
+class GeneralConfig(BaseModel):
+    """
+    General configuration
+    """
+    COL = 'GeneExpression'
+    DEBUG = getattr(sys, 'gettrace', None)() is not None
+    DATABASE_CONFIG_NAME = 'omicsdb'
 
 
-class AttributeFiller(LightningModule):
-    def __init__(self, train_patients: List[str], val_patients: List[str], collection: str, attribute_drop_rate=0.05,
-                 batch_size=4, lr=1e-4, encoder_hidden_layer_dim=128,
-                 decoder_hidden_layer_dim=128, *args: Any,
-                 **kwargs: Any):
-        super().__init__(*args, **kwargs)
+@lru_cache
+class DataConfig(BaseModel):
+    """
+    Data configuration
+    """
+    general_config = GeneralConfig()
+    attribute_drop_rate = 0.05
+    batch_size = 4
+    collection = general_config.COL
 
+    num_workers: int = 0 if general_config.DEBUG else os.cpu_count()
+
+    patients = init_database(general_config.DATABASE_CONFIG_NAME)[general_config.COL].distinct('patient')
+    train_patients = random.choices(patients, k=int(len(patients) * 0.9))
+    val_patients = list(set(patients) - set(train_patients))
+
+
+@lru_cache
+class TrainerConfig(BaseModel):
+    """
+    Trainer configuration
+    """
+
+    gpus: int = 1 if torch.cuda.is_available() else None
+    auto_select_gpus = True
+    # desired_batch_size = 16
+    accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
+    reload_dataloaders_every_epoch = False
+
+    checkpoint_callback = True
+    profiler = 'simple'
+    fast_dev_run = GeneralConfig().DEBUG
+
+
+class ModelConfig(BaseModel):
+    general_config = GeneralConfig()
+
+    attributes = init_database(general_config.DATABASE_CONFIG_NAME)[general_config.COL].distinct('name')
+    input_features = len(attributes)
+
+    layers_def = [
+        LayerDef(hidden_dim=512, activation='Hardswish', batch_norm=True),
+        LayerDef(hidden_dim=512, activation='Mish', batch_norm=True),
+        LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
+    ]
+
+    lr = 1e-4
+
+
+class DataModule(LightningDataModule):
+    def __init__(self, train_patients, val_patients, attribute_drop_rate, collection, batch_size,
+                 num_workers=None, *args, **kwargs):
+        super().__init__()
         self._train_patients = train_patients
-        self._encoder_hidden_layer_dim = encoder_hidden_layer_dim
-        self._decoder_hidden_layer_dim = decoder_hidden_layer_dim
         self._val_patients = val_patients
         self._attribute_drop_rate = attribute_drop_rate
         self._collection = collection
         self._batch_size = batch_size
-        self._lr = lr
+        self._num_workers = num_workers
 
-        self._network_def(self._get_num_features())
+    def train_dataloader(self) -> TRAIN_DATALOADERS:
+        return DataLoader(
+            dataset=AttributeFillerDataset(self._train_patients, attributes_drop_rate=self._attribute_drop_rate,
+                                           collection_name=self._collection),
+            batch_size=self._batch_size,
+            num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
+            shuffle=True,
+            drop_last=True
+        )
+
+    def val_dataloader(self) -> EVAL_DATALOADERS:
+        return DataLoader(
+            dataset=AttributeFillerDataset(self._val_patients, attributes_drop_rate=self._attribute_drop_rate,
+                                           collection_name=self._collection),
+            batch_size=self._batch_size,
+            num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
+            shuffle=False
+        )
+
+
+class AttributeFiller(MLP, LightningModule):
+    def __init__(self, collection: str, input_features: int, layer_defs: tp.List[LayerDef],
+                 lr=1e-4, *args: Any,
+                 **kwargs: Any):
+        super().__init__(input_features=input_features, layer_defs=layer_defs, *args, **kwargs)
+
+        self._collection = collection
+        self._lr = lr
 
         self.save_hyperparameters()
 
@@ -97,25 +180,6 @@ class AttributeFiller(LightningModule):
         db = init_database('brca-reader')
         return len(db[self._collection].distinct('name'))
 
-    def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return DataLoader(
-            dataset=AttributeFillerDataset(self._train_patients, attributes_drop_rate=self._attribute_drop_rate,
-                                           collection_name=self._collection),
-            batch_size=self._batch_size,
-            num_workers=os.cpu_count(),
-            shuffle=True,
-            drop_last=True
-        )
-
-    def val_dataloader(self) -> EVAL_DATALOADERS:
-        return DataLoader(
-            dataset=AttributeFillerDataset(self._val_patients, attributes_drop_rate=self._attribute_drop_rate,
-                                           collection_name=self._collection),
-            batch_size=self._batch_size,
-            num_workers=os.cpu_count(),
-            shuffle=False
-        )
-
     def step(self, batch, purpose: str):
         out = self(batch['attributes'])
         targets = torch.cat([batch['targets'][i][batch['dropped_attributes_index'].long()[i]] for i in
@@ -136,8 +200,9 @@ class AttributeFiller(LightningModule):
         self.log(f'{purpose}/mare', mare, on_step=False, on_epoch=True, logger=True)
         return dict(loss=loss)
 
-    def forward(self, x) -> Any:
-        return self.net(x)
+    #
+    # def forward(self, x) -> Any:
+    #     return self.net(x)
 
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         return self.step(batch=batch, purpose='train')
@@ -149,40 +214,35 @@ class AttributeFiller(LightningModule):
         return Adam(self.parameters(), lr=self._lr)
 
 
-class WANDBModelCheckpoint(ModelCheckpoint):
-    def on_save_checkpoint(
-            self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        out = super().on_save_checkpoint(trainer, pl_module, checkpoint)
-        if self.last_model_path:
-            wandb.save(self.last_model_path)
-        return out
-
-
 def main():
-    db = init_database('brca-reader')
-    patients = db[COL].distinct('patient')
+    general_config = GeneralConfig()
+    data_config = DataConfig()
+    trainer_config = TrainerConfig()
+    model_config = ModelConfig()
+    wandb_logger = WandbLogger("Attribute Filler")
 
-    train_patients = random.choices(patients, k=int(len(patients) * 0.9))
-    val_patients = list(set(patients) - set(train_patients))
-    model = AttributeFiller(train_patients=train_patients, val_patients=val_patients, collection=COL)
+    wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
+                                               data_config=data_config.dict(),
+                                               trainer_config=trainer_config.dict()))
+    db = init_database(general_config.DATABASE_CONFIG_NAME)
+    patients = sorted(db[general_config.COL].distinct('patient'))
 
-    checkpoint_path = 'lightning_logs/version_10/checkpoints/epoch=3194-step=146969.ckpt'
+    train_patients = sorted(random.choices(patients, k=int(len(patients) * 0.9)))
+    val_patients = sorted(list(set(patients) - set(train_patients)))
+    model = AttributeFiller(train_patients=train_patients, val_patients=val_patients, collection=general_config.COL,
+                            lr=model_config.lr, input_features=model_config.input_features,
+                            layer_defs=model_config.layers_def)
 
-    trainer = Trainer(
-        # logger=mlf_logger if not DEBUG else False,
-        gpus=1 if torch.cuda.is_available() else None,
-        auto_select_gpus=True, accumulate_grad_batches=4,
-        reload_dataloaders_every_epoch=False, max_epochs=int(1e5),
-        logger=[wandb_logger,
-                TensorBoardLogger(
-                    Path(Path(__file__).parent, 'lightning_logs', name='').as_posix())] if not DEBUG else False,
-        checkpoint_callback=True,
-        profiler='simple',
-        # resume_from_checkpoint=checkpoint_path if Path(checkpoint_path).exists() and not DEBUG else None
-    )
+    trainer = Trainer(**trainer_config.dict(),
+                      logger=[wandb_logger,
+                              TensorBoardLogger(
+                                  Path(Path(__file__).parent, 'lightning_logs',
+                                       name='').as_posix())] if not general_config.DEBUG else False,
+                      )
 
-    trainer.fit(model)
+    trainer.fit(model,
+                datamodule=DataModule(**data_config.dict())
+                )
 
 
 if __name__ == '__main__':
