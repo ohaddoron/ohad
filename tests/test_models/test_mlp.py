@@ -27,5 +27,5 @@ class TestMLP:
         out = model(torch.rand(4, 1000))
         loss = MSELoss()(torch.zeros_like(out), out)
         loss.backward()
-        assert any(model.zscore_layer.input_bias.grad)
-        assert any(model.zscore_layer.input_variance.grad)
+        assert any(list(model._layers[0].parameters())[0].grad)
+        assert any(list(model._layers[0].parameters())[1].grad)
