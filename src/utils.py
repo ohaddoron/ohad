@@ -65,7 +65,8 @@ def parse_file_to_database(file_name: str,
                            num_rows_to_parse_before_dump: int = 100000,
                            config_name: tp.Optional[str] = 'omics-database',
                            create_index: tp.Optional[bool] = True,
-                           validate_values: bool = True
+                           validate_values: bool = True,
+                           sep='\t'
                            ):
     """Parses a dataframe from disk into mongodb with the following convention:
 
@@ -98,7 +99,7 @@ def parse_file_to_database(file_name: str,
 
     try:
         df = dd.read_csv(file_name,
-                         sep='\t',
+                         sep=sep,
                          sample=2560000
                          )
         patients = df.columns[1:]
@@ -108,12 +109,12 @@ def parse_file_to_database(file_name: str,
 
     except (ValueError, ParserError):
         df = pd.read_csv(file_name,
-                         sep='\t',
+                         sep=sep,
                          )
 
         if df.shape[1] == 1:
             df = pd.read_csv(file_name,
-                             sep='\t',
+                             sep=sep,
                              )
 
         patients = df.columns[1:]
@@ -147,11 +148,12 @@ def parse_file_to_database(file_name: str,
             else:
                 if isinstance(value, str):
                     value = float(value) if value.isnumeric() else value
-                if (
-                        value != 'Redacted' or col_name != 'SomaticMutationPV') and validate_values:
-                    assert isinstance(value,
-                                      (int, float)), f'Values must be floating point objects, got instead: {value}'
-
+                if value != "Redacted":
+                    if (value != 'Redacted' or col_name != 'SomaticMutationPV') and validate_values:
+                        assert isinstance(value,
+                                          (int, float)), f'Values must be floating point objects, got instead: {value}'
+                        if math.isnan(value):
+                            continue
             aggregator.append(
                 {"patient": patient[:12], "name": row[0], "value": value, 'sample': patient, 'version': sha})
             if (len(aggregator) % num_rows_to_parse_before_dump) == 0:
