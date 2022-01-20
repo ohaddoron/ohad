@@ -1,28 +1,25 @@
 import os
 import random
 import sys
+import typing as tp
+import warnings
 from functools import lru_cache
 from pathlib import Path
-
-import mlflow.pytorch
+from typing import *
+from src.logger import logger
 import torch.cuda
-import wandb
 from pydantic import BaseModel
 from pytorch_lightning import LightningModule, Trainer, LightningDataModule
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from pytorch_lightning.loggers import MLFlowLogger, TestTubeLogger, TensorBoardLogger, WandbLogger
-from typing import *
-import pytorch_lightning as pl
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from torch import nn
 from torch.nn import MSELoss, L1Loss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from common.database import init_database
-from src.dataset import AttributeFillerDataset
-import warnings
-import typing as tp
 
+from common.database import init_database
+from src.callbacks import WANDBCheckpointCallback
+from src.dataset import AttributeFillerDataset
 from src.models import LayerDef
 from src.models.mlp import MLP
 
@@ -41,6 +38,7 @@ class GeneralConfig(BaseModel):
     COL = 'GeneExpression'
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'omicsdb'
+    OVERRIDE_ATTRIBUTES_FILE = True
 
 
 @lru_cache
@@ -76,6 +74,7 @@ class TrainerConfig(BaseModel):
     checkpoint_callback = True
     profiler = 'simple'
     fast_dev_run = GeneralConfig().DEBUG
+    progress_bar_refresh_rate = 0
 
 
 class ModelConfig(BaseModel):
@@ -229,6 +228,14 @@ def main():
     model_config = ModelConfig()
     wandb_logger = WandbLogger("Attribute Filler")
 
+    if general_config.OVERRIDE_ATTRIBUTES_FILE:
+        logger.info('Dumping raw attributes to file')
+        AttributeFillerDataset.dump_raw_attributes_file(collection=data_config.collection,
+                                                        config_name=general_config.DATABASE_CONFIG_NAME,
+                                                        output_file=Path(Path(__file__).parent,
+                                                                         '../resources/gene_expression_attributes.json').as_posix()
+                                                        )
+
     wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
                                                data_config=data_config.dict(),
                                                trainer_config=trainer_config.dict()))
@@ -246,6 +253,8 @@ def main():
                               TensorBoardLogger(
                                   Path(Path(__file__).parent, 'lightning_logs',
                                        name='').as_posix())] if not general_config.DEBUG else False,
+                      callbacks=[WANDBCheckpointCallback()],
+
                       )
 
     trainer.fit(model,

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import typing as tp
 
-from ohad.src.models import ZScoreLayer, LayerDef
+from src.models import ZScoreLayer, LayerDef
 
 
 class MLP(nn.Module):

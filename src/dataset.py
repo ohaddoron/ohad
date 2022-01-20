@@ -327,12 +327,9 @@ class AttributeFillerDataset(BaseDataset):
         return [(patient, sample) for patient in patient_samples_dict.keys() for sample in
                 patient_samples_dict[patient]]
 
-    def _get_all_raw_attributes(self):
-        raw_attributes_file = Path(Path(__file__).parent, '../resources/gene_expression_attributes.json')
-        if raw_attributes_file.exists():
-            return json.load(raw_attributes_file.open('r'))
-        db = init_database(config_name=self.config_name)
-        items = list(db[self._collection_name].aggregate([
+    @staticmethod
+    def get_raw_attributes_query():
+        return [
             {
                 '$group': {
                     '_id': '$sample',
@@ -373,7 +370,21 @@ class AttributeFillerDataset(BaseDataset):
                     'user': 0
                 }
             }
-        ], allowDiskUse=True))
+        ]
+
+    @classmethod
+    def dump_raw_attributes_file(cls, output_file: str, collection: str, config_name: str):
+        db = init_database(config_name=config_name)
+        items = list(db[collection].aggregate(cls.get_raw_attributes_query(), allowDiskUse=True))
+        with open(output_file, 'w') as f:
+            json.dump(items, f, indent=2)
+
+    def _get_all_raw_attributes(self):
+        raw_attributes_file = Path(Path(__file__).parent, '../resources/gene_expression_attributes.json')
+        if raw_attributes_file.exists():
+            return json.load(raw_attributes_file.open('r'))
+        db = init_database(config_name=self.config_name)
+        items = list(db[self._collection_name].aggregate(self.get_raw_attributes_query(), allowDiskUse=True))
         json.dump(items, raw_attributes_file.open('w'), indent=2)
         return items
 
