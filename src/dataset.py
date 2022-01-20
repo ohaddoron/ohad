@@ -18,14 +18,14 @@ cache: diskcache.Cache
 
 
 class BaseDataset(Dataset):
-    def __init__(self, patients: tp.List[str]):
+    def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb'):
         self.patients = patients
-        # self.init_db()
+        self.config_name = config_name
         self.samples = self.define_samples()
 
     def get_standardization_values(self, collection: str) -> tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self._config_name)
         return next(db[collection].aggregate([
             {
                 '$group': {
@@ -78,7 +78,7 @@ class BaseDataset(Dataset):
 
     def _get_patient_samples_dict(self, patients: tp.List[str], collection: str):
         logger.info('Getting patient`s samples')
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         items: dict = next(db[collection].aggregate([
             {
                 '$group': {
@@ -130,7 +130,7 @@ class BaseDataset(Dataset):
         return {key: value for key, value in items.items() if key in patients}
 
     def _get_raw_attributes(self, collection: str, sample: str):
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate([
             {
                 '$match': {
@@ -180,7 +180,7 @@ class BaseDataset(Dataset):
         ]))
 
     def _get_collection_attributes(self, collection: str):
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         return db[collection].distinct('name')
 
     @abstractmethod
@@ -208,7 +208,7 @@ class BaseDataset(Dataset):
         logger.info('Getting standardization values')
         logger.warning(
             'Ignoring patient names when fetching standardization values - this should be transferred elsewhere')
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate(
             [
                 {
@@ -268,16 +268,15 @@ class AttributeFillerDataset(BaseDataset):
 
     def __init__(self, patients: tp.List[str],
                  collection_name: str,
-                 standardize: bool = True,
-                 attributes_drop_rate: float = 0.05):
+                 attributes_drop_rate: float = 0.05,
+                 config_name: str = 'omicsdb'):
         self._collection_name = collection_name
-        self._standardize = standardize
         self._attributes_drop_rate = attributes_drop_rate
 
-        super(AttributeFillerDataset, self).__init__(patients=patients)
-        self._standardization_dict = self.get_standardization_dict(collection=collection_name, patients=patients)
+        super(AttributeFillerDataset, self).__init__(patients=patients, config_name=config_name)
+        # self._standardization_dict = self.get_standardization_dict(collection=collection_name, patients=patients)
 
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         self._attributes = db[collection_name].distinct('name')
 
         self._all_raw_attributes = self._get_all_raw_attributes()
@@ -294,14 +293,10 @@ class AttributeFillerDataset(BaseDataset):
 
         for i, attribute in enumerate(self._attributes):
             if attribute in raw_attributes_dict.keys():
-                attributes_vec[i] = raw_attributes_dict[attribute]
-                if self._standardize:
-                    if math.isnan(self._standardization_dict[attribute]['std']):
-                        attributes_vec[i] = 0
-                        continue
-                    attributes_vec[i] = (attributes_vec[i] - self._standardization_dict[attribute]['avg']) / \
-                                        (self._standardization_dict[attribute]['std'] + np.finfo(np.float32).eps)
-                    a = 1
+                if not math.isnan(raw_attributes_dict[attribute]):
+                    attributes_vec[i] = raw_attributes_dict[attribute]
+                else:
+                    attributes_vec[i] = 0
 
         return attributes_vec
 
@@ -336,7 +331,7 @@ class AttributeFillerDataset(BaseDataset):
         raw_attributes_file = Path(Path(__file__).parent, '../resources/gene_expression_attributes.json')
         if raw_attributes_file.exists():
             return json.load(raw_attributes_file.open('r'))
-        db = init_database(config_name='brca-reader')
+        db = init_database(config_name=self.config_name)
         items = list(db[self._collection_name].aggregate([
             {
                 '$group': {

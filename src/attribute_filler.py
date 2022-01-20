@@ -49,6 +49,7 @@ class DataConfig(BaseModel):
     Data configuration
     """
     general_config = GeneralConfig()
+    config_name = general_config.DATABASE_CONFIG_NAME
     attribute_drop_rate = 0.05
     batch_size = 4
     collection = general_config.COL
@@ -93,7 +94,7 @@ class ModelConfig(BaseModel):
 
 
 class DataModule(LightningDataModule):
-    def __init__(self, train_patients, val_patients, attribute_drop_rate, collection, batch_size,
+    def __init__(self, train_patients, val_patients, attribute_drop_rate, collection, batch_size, config_name: str,
                  num_workers=None, *args, **kwargs):
         super().__init__()
         self._train_patients = train_patients
@@ -102,11 +103,15 @@ class DataModule(LightningDataModule):
         self._collection = collection
         self._batch_size = batch_size
         self._num_workers = num_workers
+        self._config_name = config_name
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
         return DataLoader(
-            dataset=AttributeFillerDataset(self._train_patients, attributes_drop_rate=self._attribute_drop_rate,
-                                           collection_name=self._collection),
+            dataset=AttributeFillerDataset(self._train_patients,
+                                           attributes_drop_rate=self._attribute_drop_rate,
+                                           collection_name=self._collection,
+                                           config_name=self._config_name
+                                           ),
             batch_size=self._batch_size,
             num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
             shuffle=True,
@@ -115,8 +120,11 @@ class DataModule(LightningDataModule):
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
         return DataLoader(
-            dataset=AttributeFillerDataset(self._val_patients, attributes_drop_rate=self._attribute_drop_rate,
-                                           collection_name=self._collection),
+            dataset=AttributeFillerDataset(self._val_patients,
+                                           attributes_drop_rate=self._attribute_drop_rate,
+                                           collection_name=self._collection,
+                                           config_name=self._config_name
+                                           ),
             batch_size=self._batch_size,
             num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
             shuffle=False
