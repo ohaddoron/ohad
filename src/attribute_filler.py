@@ -1,11 +1,17 @@
 import os
+import pickle
 import random
 import sys
+import tempfile
 import typing as tp
 import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import *
+
+import wandb
+from pytorch_lightning.callbacks import ModelCheckpoint
+
 from src.logger import logger
 import torch.cuda
 from pydantic import BaseModel
@@ -35,10 +41,10 @@ class GeneralConfig(BaseModel):
     """
     General configuration
     """
-    COL = 'GeneExpression'
+    COL = 'GeneExpressionGDC'
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'omicsdb'
-    OVERRIDE_ATTRIBUTES_FILE = True
+    OVERRIDE_ATTRIBUTES_FILE = False
 
 
 @lru_cache
@@ -75,6 +81,9 @@ class TrainerConfig(BaseModel):
     profiler = 'simple'
     fast_dev_run = GeneralConfig().DEBUG
     progress_bar_refresh_rate = 0
+    max_epochs = int(1e6)
+
+    default_root_dir = f'{tempfile.gettempdir()}/AttributeFiller'
 
 
 class ModelConfig(BaseModel):
@@ -84,12 +93,14 @@ class ModelConfig(BaseModel):
     input_features = len(attributes)
 
     layers_def = [
-        LayerDef(hidden_dim=512, activation='Hardswish', batch_norm=True),
-        LayerDef(hidden_dim=512, activation='Mish', batch_norm=True),
+        LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
+        LayerDef(hidden_dim=32, activation='Hardswish', batch_norm=True),
+        LayerDef(hidden_dim=32, activation='Mish', batch_norm=True),
+        LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
 
-    lr = 1e-4
+    lr = 1e-3
 
 
 class DataModule(LightningDataModule):
@@ -220,13 +231,21 @@ class AttributeFiller(MLP, LightningModule):
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self._lr)
 
+    # def on_train_epoch_end(self, unused: Optional = None) -> None:
+    #     super().on_train_epoch_end()
+    # wandb.save(os.path.join(wandb.run.dir, 'checkpoints/*'))
+
 
 def main():
     general_config = GeneralConfig()
     data_config = DataConfig()
     trainer_config = TrainerConfig()
     model_config = ModelConfig()
-    wandb_logger = WandbLogger("Attribute Filler")
+    os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
+
+    wandb_logger = WandbLogger("Attribute Filler",
+                               log_model=True,
+                               save_dir=trainer_config.default_root_dir)
 
     if general_config.OVERRIDE_ATTRIBUTES_FILE:
         logger.info('Dumping raw attributes to file')
@@ -244,21 +263,28 @@ def main():
 
     train_patients = sorted(random.choices(patients, k=int(len(patients) * 0.9)))
     val_patients = sorted(list(set(patients) - set(train_patients)))
-    model = AttributeFiller(train_patients=train_patients, val_patients=val_patients, collection=general_config.COL,
-                            lr=model_config.lr, input_features=model_config.input_features,
-                            layer_defs=model_config.layers_def)
+    model = AttributeFiller(train_patients=train_patients,
+                            val_patients=val_patients,
+                            collection=general_config.COL,
+                            lr=model_config.lr,
+                            input_features=model_config.input_features,
+                            layer_defs=model_config.layers_def,
+                            model_config=model_config,
+                            data_config=data_config,
+                            trainer_config=trainer_config,
+                            general_config=general_config)
 
     trainer = Trainer(**trainer_config.dict(),
-                      logger=[wandb_logger,
-                              TensorBoardLogger(
-                                  Path(Path(__file__).parent, 'lightning_logs',
-                                       name='').as_posix())] if not general_config.DEBUG else False,
-                      callbacks=[WANDBCheckpointCallback()],
-
+                      logger=[wandb_logger if not general_config.DEBUG else False],
+                      callbacks=ModelCheckpoint(dirpath=wandb_logger.experiment.dir)
                       )
+    datamodule = DataModule(**data_config.dict())
+    # with tempfile.TemporaryDirectory() as t:
+    #     pickle.dump(datamodule, Path(t, 'datamodule.pkl').open('wb'))
+    #     wandb.save(Path(t, 'datamodule.pkl').as_posix())
 
     trainer.fit(model,
-                datamodule=DataModule(**data_config.dict())
+                datamodule=datamodule,
                 )
 
 
