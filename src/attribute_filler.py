@@ -24,16 +24,11 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from common.database import init_database
-from src.callbacks import WANDBCheckpointCallback
 from src.dataset import AttributeFillerDataset
 from src.models import LayerDef
 from src.models.mlp import MLP
 
 warnings.filterwarnings("ignore")
-
-
-# mlf_logger = MLFlowLogger(experiment_name="Attribute Filler",
-#                           tracking_uri="http://medical001-5.tau.ac.il/mlflow-server/")
 
 
 @lru_cache

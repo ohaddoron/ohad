@@ -274,7 +274,6 @@ class AttributeFillerDataset(BaseDataset):
         self._attributes_drop_rate = attributes_drop_rate
 
         super(AttributeFillerDataset, self).__init__(patients=patients, config_name=config_name)
-        # self._standardization_dict = self.get_standardization_dict(collection=collection_name, patients=patients)
 
         db = init_database(config_name=self.config_name)
         self._attributes = db[collection_name].distinct('name')

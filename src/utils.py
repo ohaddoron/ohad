@@ -1,9 +1,11 @@
 import math
+import sys
 from functools import lru_cache
 
 import pandas as pd
 import pymongo.database
 import toml
+import typer
 from pandas.errors import ParserError
 from pymongo.collection import Collection
 
@@ -16,8 +18,9 @@ import typing as tp
 import numpy as np
 import cv2
 from tqdm import tqdm
-from loguru import logger
 from dask import dataframe as dd
+from src.typer_app import app as typerApp
+from src.logger import logger
 
 
 @lru_cache
@@ -60,13 +63,15 @@ def overlay_segmentation_on_image(segmentation_slice: np.array,
     return Image.fromarray(result.astype(np.uint8))
 
 
+@typerApp.command()
 def parse_file_to_database(file_name: str,
                            col_name: str,
                            num_rows_to_parse_before_dump: int = 100000,
                            config_name: tp.Optional[str] = 'omics-database',
                            create_index: tp.Optional[bool] = True,
                            validate_values: bool = True,
-                           sep='\t'
+                           sep='\t',
+                           insert_as_table: bool = False
                            ):
     """Parses a dataframe from disk into mongodb with the following convention:
 
@@ -87,6 +92,19 @@ def parse_file_to_database(file_name: str,
     :type patients: tp.List[str]
     :return:
     """
+
+    def drop_cols_and_index(col_name):
+        col: Collection = db[col_name]
+        col.drop()
+
+        if create_index:
+            col.create_index([('patient', 1)])
+            col.create_index([('name', 1)])
+            col.create_index([('patient', 1)])
+            # col.create_index([('sample', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
+
+            logger.debug(f'Collection indexes: {col.index_information()}')
+
     import git
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
@@ -96,6 +114,17 @@ def parse_file_to_database(file_name: str,
         **config), db_name=config['db_name'])
 
     logger.debug(f'Using config: {toml.dumps(config)}')
+    if insert_as_table:
+        df = pd.read_csv(
+            file_name,
+            sep=sep
+        )
+        logger.debug(df.head())
+        documents = [row.to_dict() for _, row in df.iterrows()]
+        drop_cols_and_index(col_name)
+        db[col_name].insert_many(documents)
+
+        return
 
     try:
         df = dd.read_csv(file_name,
@@ -127,15 +156,7 @@ def parse_file_to_database(file_name: str,
         logger.debug(df.head())
 
     col: Collection = db[col_name]
-    col.drop()
-
-    if create_index:
-        col.create_index([('patient', 1)])
-        col.create_index([('name', 1)])
-        col.create_index([('patient', 1)])
-        # col.create_index([('sample', 1), ('name', 1)], unique='chr' not in df.columns.to_list())
-
-        logger.debug(f'Collection indexes: {col.index_information()}')
+    drop_cols_and_index(col_name)
     aggregator = []
 
     for i, row in tqdm(df.iterrows(), total=len(df)):
@@ -161,3 +182,7 @@ def parse_file_to_database(file_name: str,
                 aggregator = []
     if aggregator:
         col.insert_many(aggregator, bypass_document_validation=True)
+
+
+if __name__ == '__main__':
+    typerApp()
