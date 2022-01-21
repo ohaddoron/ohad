@@ -204,24 +204,29 @@ class BaseDataset(Dataset):
     def get_sample(self, sample: str) -> dict:
         ...
 
-    def get_standardization_dict(self, collection, patients: tp.List[str]) -> tp.Dict[str, tp.Dict[str, float]]:
+    @classmethod
+    def get_standardization_dict(cls, collection, patients: tp.List[str], config_name: tp.Optional[str] = None) -> \
+            tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
-        logger.warning(
-            'Ignoring patient names when fetching standardization values - this should be transferred elsewhere')
-        db = init_database(config_name=self.config_name)
+        db = init_database(config_name=config_name)
         return next(db[collection].aggregate(
             [
                 {
-                    '$group': {
-                        '_id': '$name',
-                        'avg': {
-                            '$avg': '$value'
-                        },
-                        'std': {
-                            '$stdDevPop': '$value'
+                    "$match":
+                        {
+                            "patient": {"$in": patients}
                         }
-                    }
                 }, {
+                '$group': {
+                    '_id': '$name',
+                    'avg': {
+                        '$avg': '$value'
+                    },
+                    'std': {
+                        '$stdDevPop': '$value'
+                    }
+                }
+            }, {
                 '$addFields': {
                     'dummy': 1
                 }
@@ -280,9 +285,6 @@ class AttributeFillerDataset(BaseDataset):
 
         self._all_raw_attributes = self._get_all_raw_attributes()
 
-    def init_db(self):
-        super().init_db()
-
     def get_attributes(self, sample, collection_name: str):
         # raw_attributes_dict = self._get_raw_attributes(sample=sample, collection=collection_name)
         raw_attributes_dict: dict = [item for item in self._all_raw_attributes if item['sample'] == sample][0].copy()
@@ -312,7 +314,8 @@ class AttributeFillerDataset(BaseDataset):
             targets=targets,
             attributes=attributes_vec,
             dropped_attributes_index=np.array(drop_indices, dtype=np.int16),
-            dropped_attributes=[self._attributes[i] for i in drop_indices]
+            dropped_attributes=[self._attributes[i] for i in drop_indices],
+            attributes_names=self._attributes
         )
 
     def __len__(self):

@@ -20,10 +20,8 @@ def patients():
             'TCGA-A1-A0SF']
 
 
-@pytest.mark.parametrize('standardize', [True, False])
-def test_attribute_filler_dataset(patients, standardize):
-    ds = AttributeFillerDataset(patients=patients, collection_name='GeneExpression', attributes_drop_rate=0.2,
-                                standardize=standardize)
+def test_attribute_filler_dataset(patients):
+    ds = AttributeFillerDataset(patients=patients, collection_name='GeneExpression', attributes_drop_rate=0.2)
 
     item = ds[0]
 
