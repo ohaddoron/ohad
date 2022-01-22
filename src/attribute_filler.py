@@ -90,12 +90,12 @@ class ModelConfig(BaseModel):
     input_features = len(attributes)
 
     encoder_layers_def = [
-        LayerDef(hidden_dim=2048, activation='Hardswish', batch_norm=True),
+        # LayerDef(hidden_dim=2048, activation='Hardswish', batch_norm=True),
         LayerDef(hidden_dim=128, activation='Hardswish', batch_norm=True)
     ]
     decoder_layers_def = [
         LayerDef(hidden_dim=128, activation='Mish', batch_norm=True),
-        LayerDef(hidden_dim=2048, activation='Mish', batch_norm=True),
+        # LayerDef(hidden_dim=2048, activation='Mish', batch_norm=True),
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
     lr = 1e-3
@@ -262,7 +262,7 @@ def main():
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
     wandb_logger = WandbLogger("Attribute Filler",
-                               log_model=False,
+                               log_model=True,
                                save_dir=trainer_config.default_root_dir)
 
     standardization_dict = AttributeFillerDataset.get_standardization_dict(collection=data_config.collection,
@@ -305,8 +305,7 @@ def main():
 
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
-                      callbacks=ModelCheckpoint(dirpath=wandb_logger.experiment.dir,
-                                                filename=f'attribute-model-{data_config.collection}')
+                      callbacks=ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')
                       )
     datamodule = DataModule(**data_config.dict())
     # with tempfile.TemporaryDirectory() as t:
