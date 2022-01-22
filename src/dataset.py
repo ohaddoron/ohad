@@ -211,22 +211,23 @@ class BaseDataset(Dataset):
         db = init_database(config_name=config_name)
         return next(db[collection].aggregate(
             [
+                # {
+                #     "$match":
+                #         {
+                #             "patient": {"$in": patients}
+                #         }
+                # },
                 {
-                    "$match":
-                        {
-                            "patient": {"$in": patients}
+                    '$group': {
+                        '_id': '$name',
+                        'avg': {
+                            '$avg': '$value'
+                        },
+                        'std': {
+                            '$stdDevPop': '$value'
                         }
-                }, {
-                '$group': {
-                    '_id': '$name',
-                    'avg': {
-                        '$avg': '$value'
-                    },
-                    'std': {
-                        '$stdDevPop': '$value'
                     }
-                }
-            }, {
+                }, {
                 '$addFields': {
                     'dummy': 1
                 }

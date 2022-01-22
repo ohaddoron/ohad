@@ -96,6 +96,7 @@ class ModelConfig(BaseModel):
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
     lr = 1e-3
+    standardize = True
 
 
 class DataModule(LightningDataModule):
@@ -138,12 +139,18 @@ class DataModule(LightningDataModule):
 
 class AttributeFiller(AutoEncoder, LightningModule):
     def __init__(self, collection: str, input_features: int, encoder_layers_def, decoder_layers_def,
-                 standardization_dict: OrderedDict, lr=1e-4, *args: Any, **kwargs: Any):
+                 standardization_dict: OrderedDict, lr=1e-4, standardize: bool = False, *args: Any, **kwargs: Any):
         super().__init__(input_features=input_features, encoder_layer_defs=encoder_layers_def,
                          decoder_layer_defs=decoder_layers_def)
 
         self._collection = collection
         self._standardization_dict = standardization_dict
+
+        self._avgs = torch.stack([torch.tensor(item['avg']) for item in self._standardization_dict.values()])
+        self._stds = torch.stack([torch.tensor(item['std']) for item in self._standardization_dict.values()])
+
+        self._standardize = standardize
+
         self._lr = lr
 
         self.save_hyperparameters()
@@ -195,8 +202,13 @@ class AttributeFiller(AutoEncoder, LightningModule):
         return len(db[self._collection].distinct('name'))
 
     def step(self, batch, purpose: str):
-        out = self(batch['attributes'])
-        targets = torch.cat([batch['targets'][i][batch['dropped_attributes_index'].long()[i]] for i in
+        attributes = batch['attributes']
+        targets = batch['targets']
+        if self._standardize:
+            attributes = (attributes - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+            targets = (targets - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+        out = self(attributes)
+        targets = torch.cat([targets[i][batch['dropped_attributes_index'].long()[i]] for i in
                              range(batch['targets'].shape[0])])
         preds = torch.cat([out[i][batch['dropped_attributes_index'].long()[i]] for i in
                            range(batch['targets'].shape[0])])
@@ -272,7 +284,9 @@ def main():
                             model_config=model_config,
                             data_config=data_config,
                             trainer_config=trainer_config,
-                            general_config=general_config)
+                            general_config=general_config,
+                            standardization_dict=standardization_dict_ordered,
+                            standardize=model_config.standardize)
 
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
