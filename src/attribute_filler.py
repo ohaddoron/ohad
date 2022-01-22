@@ -8,6 +8,7 @@ import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import *
+from torch.optim import lr_scheduler as pt_lr_scheduler
 
 import wandb
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -89,13 +90,19 @@ class ModelConfig(BaseModel):
     input_features = len(attributes)
 
     encoder_layers_def = [
+        LayerDef(hidden_dim=2048, activation='Hardswish', batch_norm=True),
         LayerDef(hidden_dim=128, activation='Hardswish', batch_norm=True)
     ]
     decoder_layers_def = [
         LayerDef(hidden_dim=128, activation='Mish', batch_norm=True),
+        LayerDef(hidden_dim=2048, activation='Mish', batch_norm=True),
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
     lr = 1e-3
+    lr_scheduler = dict(
+        name='ReduceLROnPlateau',
+        params=dict(verbose=True)
+    )
     standardize = True
 
 
@@ -139,7 +146,9 @@ class DataModule(LightningDataModule):
 
 class AttributeFiller(AutoEncoder, LightningModule):
     def __init__(self, collection: str, input_features: int, encoder_layers_def, decoder_layers_def,
-                 standardization_dict: OrderedDict, lr=1e-4, standardize: bool = False, *args: Any, **kwargs: Any):
+                 standardization_dict: OrderedDict, lr=1e-4, standardize: bool = False, lr_scheduler: dict = None,
+                 *args: Any,
+                 **kwargs: Any):
         super().__init__(input_features=input_features, encoder_layer_defs=encoder_layers_def,
                          decoder_layer_defs=decoder_layers_def)
 
@@ -152,6 +161,7 @@ class AttributeFiller(AutoEncoder, LightningModule):
         self._standardize = standardize
 
         self._lr = lr
+        self._lr_scheduler = lr_scheduler
 
         self.save_hyperparameters()
 
@@ -215,7 +225,7 @@ class AttributeFiller(AutoEncoder, LightningModule):
 
         mse_loss = MSELoss()(targets, preds)
         l1_loss = L1Loss()(targets, preds)
-        mare = torch.mean((torch.abs(targets - preds)) / (torch.abs(targets) + torch.finfo(torch.float32).eps))
+        mare = torch.mean((torch.abs(targets - preds)) / torch.mean(torch.abs(targets)))
 
         loss = mse_loss
 
@@ -233,7 +243,11 @@ class AttributeFiller(AutoEncoder, LightningModule):
         return self.step(batch=batch, purpose='val')
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self._lr)
+        optimizer = Adam(self.parameters(), lr=self._lr)
+        if self._lr_scheduler is not None:
+            scheduler = getattr(pt_lr_scheduler, self._lr_scheduler['name'])(optimizer, **self._lr_scheduler['params'])
+            return {'optimizer': optimizer, "lr_scheduler": scheduler, 'monitor': 'train/loss'}
+        return optimizer
 
     # def on_train_epoch_end(self, unused: Optional = None) -> None:
     #     super().on_train_epoch_end()
@@ -248,7 +262,7 @@ def main():
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
     wandb_logger = WandbLogger("Attribute Filler",
-                               log_model=True,
+                               log_model=False,
                                save_dir=trainer_config.default_root_dir)
 
     standardization_dict = AttributeFillerDataset.get_standardization_dict(collection=data_config.collection,
@@ -286,7 +300,8 @@ def main():
                             trainer_config=trainer_config,
                             general_config=general_config,
                             standardization_dict=standardization_dict_ordered,
-                            standardize=model_config.standardize)
+                            standardize=model_config.standardize,
+                            lr_scheduler=model_config.lr_scheduler)
 
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
