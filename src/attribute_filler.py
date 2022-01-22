@@ -103,7 +103,7 @@ class ModelConfig(BaseModel):
         name='ReduceLROnPlateau',
         params=dict(verbose=True)
     )
-    standardize = True
+    standardize = False
 
 
 class DataModule(LightningDataModule):
