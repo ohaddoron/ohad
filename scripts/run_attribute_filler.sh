@@ -9,6 +9,7 @@ source /home/ohad/.local/bin/virtualenvwrapper.sh
 
 workon ohad
 
+git fetch
 git reset --hard origin/main
 
 python ../src/attribute_filler.py
