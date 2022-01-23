@@ -8,6 +8,7 @@ from pathlib import Path
 
 import diskcache
 import numpy as np
+from numpy.core._simd import targets
 from torch.utils.data import Dataset
 
 from common.database import init_database
@@ -428,3 +429,18 @@ class MultiOmicsDataset(BaseDataset):
                     )
 
         return samples
+
+
+class AttributeSignDataset(AttributeFillerDataset):
+    def get_sample(self, sample: str) -> dict:
+        sample = super().get_sample(sample)
+
+        targets = sample['targets']
+        targets_ = np.zeros_like(targets)
+
+        for index in sample['dropped_attributes_index']:
+            targets_[index] = np.sign(targets[index])
+
+        sample['target_attributes'] = targets
+        sample['targets'] = targets_
+        return sample

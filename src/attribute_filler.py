@@ -8,6 +8,9 @@ import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import *
+
+import torchmetrics.functional
+import typer
 from torch.optim import lr_scheduler as pt_lr_scheduler
 
 import wandb
@@ -31,6 +34,8 @@ from src.models.mlp import MLP, AutoEncoder
 
 warnings.filterwarnings("ignore")
 
+app = typer.Typer()
+
 
 @lru_cache
 class GeneralConfig(BaseModel):
@@ -40,7 +45,7 @@ class GeneralConfig(BaseModel):
     COL = 'GeneExpression'
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'omicsdb'
-    OVERRIDE_ATTRIBUTES_FILE = True
+    OVERRIDE_ATTRIBUTES_FILE = False
 
 
 @lru_cache
@@ -99,10 +104,11 @@ class ModelConfig(BaseModel):
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
     lr = 1e-3
-    lr_scheduler = dict(
-        name='ReduceLROnPlateau',
-        params=dict(verbose=True)
-    )
+    # lr_scheduler = dict(
+    #     name='ReduceLROnPlateau',
+    #     params=dict(verbose=True)
+    # )
+    lr_scheduler: dict = None
     standardize = False
 
 
@@ -154,9 +160,9 @@ class AttributeFiller(AutoEncoder, LightningModule):
 
         self._collection = collection
         self._standardization_dict = standardization_dict
-
-        self._avgs = torch.stack([torch.tensor(item['avg']) for item in self._standardization_dict.values()])
-        self._stds = torch.stack([torch.tensor(item['std']) for item in self._standardization_dict.values()])
+        if self._standardization_dict:
+            self._avgs = torch.stack([torch.tensor(item['avg']) for item in self._standardization_dict.values()])
+            self._stds = torch.stack([torch.tensor(item['std']) for item in self._standardization_dict.values()])
 
         self._standardize = standardize
 
@@ -249,12 +255,35 @@ class AttributeFiller(AutoEncoder, LightningModule):
             return {'optimizer': optimizer, "lr_scheduler": scheduler, 'monitor': 'train/loss'}
         return optimizer
 
-    # def on_train_epoch_end(self, unused: Optional = None) -> None:
-    #     super().on_train_epoch_end()
-    # wandb.save(os.path.join(wandb.run.dir, 'checkpoints/*'))
+
+class AttributeSignPredictor(AttributeFiller):
+    def step(self, batch, purpose: str):
+        attributes = batch['attributes']
+        targets = batch['targets']
+        if self._standardize:
+            attributes = (attributes - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+            targets = (targets - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+        out = self(attributes)
+        targets = (torch.cat([targets[i][batch['dropped_attributes_index'].long()[i]] for i in
+                              range(batch['targets'].shape[0])]) > 0).long()
+        preds = torch.cat([out[i][batch['dropped_attributes_index'].long()[i]] for i in
+                           range(batch['targets'].shape[0])])
+
+        mse_loss = MSELoss()(targets, preds)
+
+        loss = mse_loss
+
+        precision, recall = torchmetrics.functional.precision_recall(preds=preds, target=targets.long())
+
+        self.log(f'{purpose}/loss', loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/precision', precision, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/recall', recall, on_step=False, on_epoch=True, logger=True)
+
+        return dict(loss=loss)
 
 
-def main():
+@app.command()
+def attribute_filler_run():
     general_config = GeneralConfig()
     data_config = DataConfig()
     trainer_config = TrainerConfig()
@@ -318,5 +347,71 @@ def main():
                 )
 
 
+@app.command(name='sign_prediction')
+def run_attribute_sign_predictor():
+    general_config = GeneralConfig()
+    data_config = DataConfig()
+    trainer_config = TrainerConfig()
+    model_config = ModelConfig()
+    model_config.decoder_layers_def[-1].activation = 'Sigmoid'
+    os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
+
+    wandb_logger = WandbLogger("Attribute Sign Prediction",
+                               log_model=True,
+                               save_dir=trainer_config.default_root_dir)
+
+    # standardization_dict = AttributeFillerDataset.get_standardization_dict(collection=data_config.collection,
+    #                                                                        patients=data_config.train_patients,
+    #                                                                        config_name=general_config.DATABASE_CONFIG_NAME)
+    # standardization_dict_ordered = OrderedDict()
+    #
+    # [standardization_dict_ordered.update({key: standardization_dict[key]}) for key in model_config.attributes]
+
+    if general_config.OVERRIDE_ATTRIBUTES_FILE:
+        logger.info('Dumping raw attributes to file')
+        AttributeFillerDataset.dump_raw_attributes_file(collection=data_config.collection,
+                                                        config_name=general_config.DATABASE_CONFIG_NAME,
+                                                        output_file=Path(Path(__file__).parent,
+                                                                         '../resources/gene_expression_attributes.json').as_posix()
+                                                        )
+
+    wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
+                                               data_config=data_config.dict(),
+                                               trainer_config=trainer_config.dict()))
+    db = init_database(general_config.DATABASE_CONFIG_NAME)
+    patients = sorted(db[general_config.COL].distinct('patient'))
+
+    train_patients = sorted(random.choices(patients, k=int(len(patients) * 0.9)))
+    val_patients = sorted(list(set(patients) - set(train_patients)))
+    model = AttributeSignPredictor(train_patients=train_patients,
+                                   val_patients=val_patients,
+                                   collection=general_config.COL,
+                                   lr=model_config.lr,
+                                   input_features=model_config.input_features,
+                                   encoder_layers_def=model_config.encoder_layers_def,
+                                   decoder_layers_def=model_config.decoder_layers_def,
+                                   model_config=model_config,
+                                   data_config=data_config,
+                                   trainer_config=trainer_config,
+                                   general_config=general_config,
+                                   standardization_dict=OrderedDict(),
+                                   standardize=model_config.standardize,
+                                   lr_scheduler=model_config.lr_scheduler)
+
+    trainer = Trainer(**trainer_config.dict(),
+                      logger=[wandb_logger if not general_config.DEBUG else False],
+                      callbacks=[LearningRateMonitor(),
+                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')]
+                      )
+    datamodule = DataModule(**data_config.dict())
+    # with tempfile.TemporaryDirectory() as t:
+    #     pickle.dump(datamodule, Path(t, 'datamodule.pkl').open('wb'))
+    #     wandb.save(Path(t, 'datamodule.pkl').as_posix())
+
+    trainer.fit(model,
+                datamodule=datamodule,
+                )
+
+
 if __name__ == '__main__':
-    main()
+    app()
