@@ -231,7 +231,7 @@ class AttributeFiller(AutoEncoder, LightningModule):
 
         mse_loss = MSELoss()(targets, preds)
         l1_loss = L1Loss()(targets, preds)
-        mare = torch.mean((torch.abs(targets - preds)) / torch.mean(torch.abs(targets)))
+        mare = torch.mean((torch.abs(targets - preds)) / (torch.abs(targets) + 1e-6))
 
         loss = mse_loss
 
