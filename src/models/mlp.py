@@ -46,14 +46,14 @@ class Decoder(MLP):
 class AutoEncoder(nn.Module):
     def __init__(self, input_features, encoder_layer_defs: tp.List[LayerDef], decoder_layer_defs: tp.List[LayerDef]):
         super().__init__()
-        self._zscore = ZScoreLayer(input_features)
+        self.zscore = ZScoreLayer(input_features)
 
         self.encoder = Encoder(input_features, encoder_layer_defs)
         self.decoder = Decoder(encoder_layer_defs[-1].hidden_dim, decoder_layer_defs)
 
     def forward(self, x, return_aux: bool = False):
-        encoder_out = self.encoder(self._zscore(x))
-        decoder_out = self._zscore.forward(self.decoder(encoder_out), inverse=False)
+        encoder_out = self.encoder(self.zscore(x))
+        decoder_out = self.zscore.forward(self.decoder(encoder_out), inverse=False)
         if return_aux:
             return dict(out=decoder_out, aux=encoder_out)
         return decoder_out
