@@ -3,12 +3,11 @@ from torch import nn, Tensor
 
 
 class ZScoreLayer(nn.BatchNorm1d):
-    def __init__(self, num_features, inverse: bool = False):
+    def __init__(self, num_features):
         super().__init__(num_features)
-        self._inverse = inverse
 
-    def forward(self, input: Tensor) -> Tensor:
-        if not self._inverse:
+    def forward(self, input: Tensor, inverse: bool = False) -> Tensor:
+        if not inverse:
             return super().forward(input)
         parameters = dict(list(self.named_parameters()))
         return (input * parameters['weight']) + parameters['bias']

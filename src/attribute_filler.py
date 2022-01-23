@@ -23,7 +23,7 @@ from pytorch_lightning import LightningModule, Trainer, LightningDataModule
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from torch import nn
-from torch.nn import MSELoss, L1Loss
+from torch.nn import MSELoss, L1Loss, BCELoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
@@ -85,7 +85,7 @@ class TrainerConfig(BaseModel):
     max_epochs = int(1e6)
 
     default_root_dir = f'{tempfile.gettempdir()}/AttributeFiller'
-    stochastic_weight_avg = True
+    stochastic_weight_avg = False
 
 
 class ModelConfig(BaseModel):
@@ -265,14 +265,15 @@ class AttributeSignPredictor(AttributeFiller):
             targets = (targets - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
         out = self(attributes)
         targets = (torch.cat([targets[i][batch['dropped_attributes_index'].long()[i]] for i in
-                              range(batch['targets'].shape[0])]) > 0).long()
+                              range(batch['targets'].shape[0])]) > 0).float()
         preds = torch.cat([out[i][batch['dropped_attributes_index'].long()[i]] for i in
                            range(batch['targets'].shape[0])])
 
-        mse_loss = MSELoss()(targets, preds)
+        # mse_loss = MSELoss()(targets, preds)
 
-        loss = mse_loss
-
+        assert 0. <= preds.min() <= preds.max() <= 1.
+        assert 0. <= targets.min() <= targets.max() <= 1.
+        loss = BCELoss()(preds, targets)
         precision, recall = torchmetrics.functional.precision_recall(preds=preds, target=targets.long())
 
         self.log(f'{purpose}/loss', loss, on_step=False, on_epoch=True, logger=True)

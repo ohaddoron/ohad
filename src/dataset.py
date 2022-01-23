@@ -196,7 +196,6 @@ class BaseDataset(Dataset):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.init_db()
 
     @abstractmethod
     def define_samples(self) -> tp.List[tp.Any]:
