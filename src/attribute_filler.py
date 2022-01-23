@@ -11,7 +11,7 @@ from typing import *
 from torch.optim import lr_scheduler as pt_lr_scheduler
 
 import wandb
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from src.logger import logger
 import torch.cuda
@@ -91,10 +91,10 @@ class ModelConfig(BaseModel):
 
     encoder_layers_def = [
         # LayerDef(hidden_dim=2048, activation='Hardswish', batch_norm=True),
-        LayerDef(hidden_dim=128, activation='Hardswish', batch_norm=True)
+        LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True)
     ]
     decoder_layers_def = [
-        LayerDef(hidden_dim=128, activation='Mish', batch_norm=True),
+        LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
         # LayerDef(hidden_dim=2048, activation='Mish', batch_norm=True),
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
@@ -305,7 +305,8 @@ def main():
 
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
-                      callbacks=ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')
+                      callbacks=[LearningRateMonitor(),
+                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')]
                       )
     datamodule = DataModule(**data_config.dict())
     # with tempfile.TemporaryDirectory() as t:
