@@ -291,7 +291,7 @@ def attribute_filler_run():
     model_config = ModelConfig()
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
-    wandb_logger = WandbLogger("Attribute Filler",
+    wandb_logger = WandbLogger(f"Attribute Filler {general_config.COL}",
                                log_model=True,
                                save_dir=trainer_config.default_root_dir)
 
@@ -416,3 +416,5 @@ def run_attribute_sign_predictor():
 
 if __name__ == '__main__':
     app()
+
+wandb.save()

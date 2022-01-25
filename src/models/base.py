@@ -3,9 +3,6 @@ from torch import nn, Tensor
 
 
 class ZScoreLayer(nn.BatchNorm1d):
-    def __init__(self, num_features):
-        super().__init__(num_features)
-
     def forward(self, input: Tensor, inverse: bool = False) -> Tensor:
         if not inverse:
             return super().forward(input)
