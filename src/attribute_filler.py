@@ -578,7 +578,8 @@ def attribute_filler_attention_run():
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
                       callbacks=[LearningRateMonitor(),
-                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')]
+                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}',
+                                                 dirpath=f'{trainer_config.default_root_dir}/files')]
                       )
     datamodule = DataModule(**data_config.dict())
 
