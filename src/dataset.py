@@ -211,12 +211,6 @@ class BaseDataset(Dataset):
         db = init_database(config_name=config_name)
         return next(db[collection].aggregate(
             [
-                # {
-                #     "$match":
-                #         {
-                #             "patient": {"$in": patients}
-                #         }
-                # },
                 {
                     '$group': {
                         '_id': '$name',

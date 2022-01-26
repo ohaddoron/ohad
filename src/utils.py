@@ -76,6 +76,7 @@ def parse_file_to_database(file_name: str,
     """Parses a dataframe from disk into mongodb with the following convention:
 
     .. code-block:: json
+
         {
             patient: <patient_name>,
             name: <feature_name>,

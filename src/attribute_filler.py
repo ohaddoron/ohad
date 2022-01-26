@@ -45,7 +45,7 @@ class GeneralConfig(BaseModel):
     COL = 'GeneExpression'
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'omicsdb'
-    OVERRIDE_ATTRIBUTES_FILE = False
+    OVERRIDE_ATTRIBUTES_FILE = True
 
 
 @lru_cache
@@ -295,12 +295,7 @@ def attribute_filler_run():
                                log_model=True,
                                save_dir=trainer_config.default_root_dir)
 
-    standardization_dict = AttributeFillerDataset.get_standardization_dict(collection=data_config.collection,
-                                                                           patients=data_config.train_patients,
-                                                                           config_name=general_config.DATABASE_CONFIG_NAME)
     standardization_dict_ordered = OrderedDict()
-
-    [standardization_dict_ordered.update({key: standardization_dict[key]}) for key in model_config.attributes]
 
     if general_config.OVERRIDE_ATTRIBUTES_FILE:
         logger.info('Dumping raw attributes to file')

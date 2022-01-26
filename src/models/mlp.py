@@ -57,3 +57,39 @@ class AutoEncoder(nn.Module):
         if return_aux:
             return dict(out=decoder_out, aux=encoder_out)
         return decoder_out
+
+
+class Attention1d(nn.Module):
+
+    def __init__(self, input_channels, output_channels):
+        super().__init__()
+        self.conv = nn.Conv1d(input_channels, output_channels, kernel_size=1)
+
+    def forward(self, input):
+        return self.conv(input).squeeze()
+
+
+class AutoEncoderAttention(nn.Sequential):
+    """Auto-encoder designed to encoder 1d data but can also handle attention to be provided to said 1d data. The
+    attention in the main use case is the knowledge on which feature was knocked off so the network will have the
+    apriori knowledge on which feature is it going to be tested on.
+
+    :param input_channels: Number of input channels to be provided to the auto encoder. For a feature vector and accompanying attention, this should be set to 2
+    :type input_channels: int
+    :param input_features: Number of input features for the autoencoder to handle
+    :type input_features: int
+    :param encoder_layer_defs: Layer definitions for the encoder. See :class:`src.models.LayerDef`.
+    :type encoder_layer_defs: List[:class:`src.models.LayerDef`]
+    :param decoder_layer_defs: Layer definitions for the decoder. See :class:`src.models.LayerDef`
+    :type decoder_layer_defs: List[:class:`src.models.LayerDef`]
+    """
+
+    def __init__(self, input_channels: int, input_features: int, encoder_layer_defs, decoder_layer_defs, *args):
+        super().__init__(*args)
+        self.autoencoder = AutoEncoder(input_features=input_features,
+                                       encoder_layer_defs=encoder_layer_defs,
+                                       decoder_layer_defs=decoder_layer_defs)
+        self.attention = Attention1d(input_channels=input_channels, output_channels=1)
+
+    def forward(self, input):
+        return self.autoencoder(self.attention(input).squeeze())
