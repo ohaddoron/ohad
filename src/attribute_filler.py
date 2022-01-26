@@ -289,9 +289,12 @@ class AttributeAttentionDataset(AttentionMixin, AttributeFillerDataset): pass
 class AttributeFillerAttention(AutoEncoderAttention, LightningModule):
     def __init__(self, collection: str, input_features: int, encoder_layers_def, decoder_layers_def,
                  standardization_dict: OrderedDict, lr=1e-4, standardize: bool = False, lr_scheduler: dict = None,
+                 input_channels: int = 2,
                  *args: Any,
                  **kwargs: Any):
-        super().__init__(input_features=input_features, encoder_layer_defs=encoder_layers_def,
+        super().__init__(input_channels=input_channels,
+                         input_features=input_features,
+                         encoder_layer_defs=encoder_layers_def,
                          decoder_layer_defs=decoder_layers_def)
 
         self._collection = collection
@@ -560,7 +563,8 @@ def attribute_filler_attention_run():
 
     train_patients = sorted(random.choices(patients, k=int(len(patients) * 0.9)))
     val_patients = sorted(list(set(patients) - set(train_patients)))
-    model = AttributeFillerAttention(train_patients=train_patients,
+    model = AttributeFillerAttention(input_channels=2,
+                                     train_patients=train_patients,
                                      val_patients=val_patients,
                                      collection=general_config.COL,
                                      lr=model_config.lr,
@@ -581,7 +585,7 @@ def attribute_filler_attention_run():
                                  ModelCheckpoint(filename=f'attribute-model-{data_config.collection}',
                                                  dirpath=f'{trainer_config.default_root_dir}/files')]
                       )
-    datamodule = DataModule(**data_config.dict())
+    datamodule = DataModuleAttention(**data_config.dict())
 
     trainer.fit(model,
                 datamodule=datamodule,
