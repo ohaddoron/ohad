@@ -1,0 +1,22 @@
+.. Multi Omics Missing Data Survival Predictor documentation master file, created by
+
+
+Multi Omics Missing Data Survival Predictor's
+=======================================================================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   models.rst
+   utils.rst
+
+
+.. include:: README.rst
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
