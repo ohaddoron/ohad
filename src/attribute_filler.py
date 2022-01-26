@@ -343,7 +343,7 @@ def attribute_filler_run():
                 )
 
 
-@app.command(name='sign_prediction')
+@app.command()
 def run_attribute_sign_predictor():
     general_config = GeneralConfig()
     data_config = DataConfig()

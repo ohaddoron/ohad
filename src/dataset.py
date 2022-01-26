@@ -386,6 +386,17 @@ class AttributeFillerDataset(BaseDataset):
         return items
 
 
+class AttentionMixin(AttributeFillerDataset):
+    def get_sample(self, sample: str) -> dict:
+        sample = super().get_sample(sample)
+        attention = np.ones_like(sample['attributes'])
+        for index in sample['dropped_attributes_index']:
+            attention[index] = 0.
+
+        sample['attributes'] = np.stack((sample['attributes'], attention))
+        return sample
+
+
 class MultiOmicsDataset(BaseDataset):
     def __init__(self, patients: tp.List[str], collections: tp.List[str]):
         self._collections = collections

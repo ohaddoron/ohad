@@ -1,7 +1,7 @@
 import pytest
 from torch.utils.data import DataLoader
 
-from src.dataset import AttributeFillerDataset, MultiOmicsDataset
+from src.dataset import AttributeFillerDataset, MultiOmicsDataset, AttentionMixin
 
 
 @pytest.fixture
@@ -44,3 +44,17 @@ class TestMultiOmicsDataset:
     def test_define_samples(self, ds: MultiOmicsDataset):
         assert all([len(sample) == 3 for sample in ds.samples])
         assert len(ds.samples) == 12
+
+
+class TestAttentionMixin:
+    def test_get_sample(self, patients):
+        class AttributeFillerAttentionDataset(AttentionMixin, AttributeFillerDataset): pass
+
+        ds = AttributeFillerAttentionDataset(patients=patients,
+                                             collection_name='GeneExpression',
+                                             attributes_drop_rate=0.2)
+
+        dl = DataLoader(dataset=ds, batch_size=15, num_workers=0)
+
+        item = next(iter(dl))
+        pass
