@@ -48,13 +48,14 @@ class TestMultiOmicsDataset:
 
 class TestAttentionMixin:
     def test_get_sample(self, patients):
+        import torch
         class AttributeFillerAttentionDataset(AttentionMixin, AttributeFillerDataset): pass
 
         ds = AttributeFillerAttentionDataset(patients=patients,
                                              collection_name='GeneExpression',
                                              attributes_drop_rate=0.2)
 
-        dl = DataLoader(dataset=ds, batch_size=15, num_workers=0)
+        dl = DataLoader(dataset=ds, batch_size=2, num_workers=0)
 
         item = next(iter(dl))
-        pass
+        assert item['attributes'].shape == torch.Size((2, 2, 17814))

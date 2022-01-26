@@ -28,9 +28,9 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from common.database import init_database
-from src.dataset import AttributeFillerDataset
+from src.dataset import AttributeFillerDataset, AttentionMixin
 from src.models import LayerDef
-from src.models.mlp import MLP, AutoEncoder
+from src.models.mlp import MLP, AutoEncoder, AutoEncoderAttention
 
 warnings.filterwarnings("ignore")
 
@@ -283,6 +283,127 @@ class AttributeSignPredictor(AttributeFiller):
         return dict(loss=loss)
 
 
+class AttributeAttentionDataset(AttentionMixin, AttributeFillerDataset): pass
+
+
+class AttributeFillerAttention(AutoEncoderAttention, LightningModule):
+    def __init__(self, collection: str, input_features: int, encoder_layers_def, decoder_layers_def,
+                 standardization_dict: OrderedDict, lr=1e-4, standardize: bool = False, lr_scheduler: dict = None,
+                 *args: Any,
+                 **kwargs: Any):
+        super().__init__(input_features=input_features, encoder_layer_defs=encoder_layers_def,
+                         decoder_layer_defs=decoder_layers_def)
+
+        self._collection = collection
+        self._standardization_dict = standardization_dict
+        if self._standardization_dict:
+            self._avgs = torch.stack([torch.tensor(item['avg']) for item in self._standardization_dict.values()])
+            self._stds = torch.stack([torch.tensor(item['std']) for item in self._standardization_dict.values()])
+
+        self._standardize = standardize
+
+        self._lr = lr
+        self._lr_scheduler = lr_scheduler
+
+        self.save_hyperparameters()
+
+    def _get_num_features(self):
+        db = init_database('brca-reader')
+        return len(db[self._collection].distinct('name'))
+
+    def step(self, batch, purpose: str):
+        attributes = batch['attributes']
+        targets = batch['targets']
+        if self._standardize:
+            attributes = (attributes - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+            targets = (targets - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+        out = self(attributes)
+        targets = torch.cat([targets[i][batch['dropped_attributes_index'].long()[i]] for i in
+                             range(batch['targets'].shape[0])])
+        preds = torch.cat([out[i][batch['dropped_attributes_index'].long()[i]] for i in
+                           range(batch['targets'].shape[0])])
+
+        mse_loss = MSELoss()(targets, preds)
+        l1_loss = L1Loss()(targets, preds)
+        mare = torch.mean((torch.abs(targets - preds)) / (torch.abs(targets) + 1e-6))
+
+        loss = mse_loss
+
+        # loss = MSELoss()(out, batch['targets'])
+        self.log(f'{purpose}/loss', loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/l1', l1_loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/l2', mse_loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/mare', mare, on_step=False, on_epoch=True, logger=True)
+        return dict(loss=loss)
+
+    def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        return self.step(batch=batch, purpose='train')
+
+    def validation_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+        return self.step(batch=batch, purpose='val')
+
+    def configure_optimizers(self):
+        optimizer = Adam(self.parameters(), lr=self._lr)
+        if self._lr_scheduler is not None:
+            scheduler = getattr(pt_lr_scheduler, self._lr_scheduler['name'])(optimizer, **self._lr_scheduler['params'])
+            return {'optimizer': optimizer, "lr_scheduler": scheduler, 'monitor': 'train/loss'}
+        return optimizer
+
+
+class AttributeSignPredictor(AttributeFiller):
+    def step(self, batch, purpose: str):
+        attributes = batch['attributes']
+        targets = batch['targets']
+        if self._standardize:
+            attributes = (attributes - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+            targets = (targets - self._avgs.type_as(attributes)) / (self._stds).type_as(attributes)
+        out = self(attributes)
+        targets = (torch.cat([targets[i][batch['dropped_attributes_index'].long()[i]] for i in
+                              range(batch['targets'].shape[0])]) > 0).float()
+        preds = torch.cat([out[i][batch['dropped_attributes_index'].long()[i]] for i in
+                           range(batch['targets'].shape[0])])
+
+        # mse_loss = MSELoss()(targets, preds)
+
+        assert 0. <= preds.min() <= preds.max() <= 1.
+        assert 0. <= targets.min() <= targets.max() <= 1.
+        loss = BCELoss()(preds, targets)
+        precision, recall = torchmetrics.functional.precision_recall(preds=preds, target=targets.long())
+
+        self.log(f'{purpose}/loss', loss, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/precision', precision, on_step=False, on_epoch=True, logger=True)
+        self.log(f'{purpose}/recall', recall, on_step=False, on_epoch=True, logger=True)
+
+        return dict(loss=loss)
+
+
+class DataModuleAttention(DataModule):
+    def train_dataloader(self) -> TRAIN_DATALOADERS:
+        return DataLoader(
+            dataset=AttributeAttentionDataset(self._train_patients,
+                                              attributes_drop_rate=self._attribute_drop_rate,
+                                              collection_name=self._collection,
+                                              config_name=self._config_name
+                                              ),
+            batch_size=self._batch_size,
+            num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
+            shuffle=True,
+            drop_last=True
+        )
+
+    def val_dataloader(self) -> EVAL_DATALOADERS:
+        return DataLoader(
+            dataset=AttributeAttentionDataset(self._val_patients,
+                                              attributes_drop_rate=self._attribute_drop_rate,
+                                              collection_name=self._collection,
+                                              config_name=self._config_name
+                                              ),
+            batch_size=self._batch_size,
+            num_workers=os.cpu_count() if self._num_workers is None else self._num_workers,
+            shuffle=False
+        )
+
+
 @app.command()
 def attribute_filler_run():
     general_config = GeneralConfig()
@@ -409,7 +530,62 @@ def run_attribute_sign_predictor():
                 )
 
 
+@app.command()
+def attribute_filler_attention_run():
+    general_config = GeneralConfig()
+    data_config = DataConfig()
+    trainer_config = TrainerConfig()
+    model_config = ModelConfig()
+    os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
+
+    wandb_logger = WandbLogger(f"Attribute Filler {general_config.COL}",
+                               log_model=True,
+                               save_dir=trainer_config.default_root_dir)
+
+    standardization_dict_ordered = OrderedDict()
+
+    if general_config.OVERRIDE_ATTRIBUTES_FILE:
+        logger.info('Dumping raw attributes to file')
+        AttributeFillerDataset.dump_raw_attributes_file(collection=data_config.collection,
+                                                        config_name=general_config.DATABASE_CONFIG_NAME,
+                                                        output_file=Path(Path(__file__).parent,
+                                                                         '../resources/gene_expression_attributes.json').as_posix()
+                                                        )
+
+    wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
+                                               data_config=data_config.dict(),
+                                               trainer_config=trainer_config.dict()))
+    db = init_database(general_config.DATABASE_CONFIG_NAME)
+    patients = sorted(db[general_config.COL].distinct('patient'))
+
+    train_patients = sorted(random.choices(patients, k=int(len(patients) * 0.9)))
+    val_patients = sorted(list(set(patients) - set(train_patients)))
+    model = AttributeFillerAttention(train_patients=train_patients,
+                                     val_patients=val_patients,
+                                     collection=general_config.COL,
+                                     lr=model_config.lr,
+                                     input_features=model_config.input_features,
+                                     encoder_layers_def=model_config.encoder_layers_def,
+                                     decoder_layers_def=model_config.decoder_layers_def,
+                                     model_config=model_config,
+                                     data_config=data_config,
+                                     trainer_config=trainer_config,
+                                     general_config=general_config,
+                                     standardization_dict=standardization_dict_ordered,
+                                     standardize=model_config.standardize,
+                                     lr_scheduler=model_config.lr_scheduler)
+
+    trainer = Trainer(**trainer_config.dict(),
+                      logger=[wandb_logger if not general_config.DEBUG else False],
+                      callbacks=[LearningRateMonitor(),
+                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')]
+                      )
+    datamodule = DataModule(**data_config.dict())
+
+    trainer.fit(model,
+                datamodule=datamodule,
+                )
+
+
 if __name__ == '__main__':
     app()
-
-wandb.save()
