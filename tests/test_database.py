@@ -10,7 +10,7 @@ from common.config import get_config
 
 @pytest.fixture
 def db_config():
-    return get_config(os.path.join(os.path.dirname(__file__), '../config.toml'), 'brca-database')
+    return get_config(os.path.join(os.path.dirname(__file__), '../config.toml'), 'omicsdb')
 
 
 def test_get_segmentation_files(db_config):

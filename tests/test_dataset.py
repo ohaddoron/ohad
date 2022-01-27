@@ -29,7 +29,8 @@ def test_attribute_filler_dataset(patients):
 
     items = next(iter(dl))
 
-    assert {'attributes', 'dropped_attributes_index', 'dropped_attributes', 'targets'} == set(items.keys())
+    assert {'attributes', 'dropped_attributes_index', 'dropped_attributes', 'targets', 'attributes_names'} == set(
+        items.keys())
 
 
 class TestMultiOmicsDataset:
