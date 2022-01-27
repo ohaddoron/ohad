@@ -524,9 +524,6 @@ def run_attribute_sign_predictor():
                                  ]
                       )
     datamodule = DataModule(**data_config.dict())
-    # with tempfile.TemporaryDirectory() as t:
-    #     pickle.dump(datamodule, Path(t, 'datamodule.pkl').open('wb'))
-    #     wandb.save(Path(t, 'datamodule.pkl').as_posix())
 
     trainer.fit(model,
                 datamodule=datamodule,

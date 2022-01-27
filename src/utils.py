@@ -16,7 +16,7 @@ from common.database import parse_mongodb_connection_string, init_cached_databas
 from PIL import Image
 import typing as tp
 import numpy as np
-import cv2
+
 from tqdm import tqdm
 from dask import dataframe as dd
 from src.typer_app import app as typerApp

@@ -8,7 +8,7 @@ from tqdm import tqdm
 from common.database import init_database
 from src.logger import logger
 
-CONFIG_NAME = 'brca-reader'
+CONFIG_NAME = 'omicsdb'
 
 
 class VisualizerBase:
@@ -19,7 +19,7 @@ class VisualizerBase:
 
 class FeatureTypesVisualizer(VisualizerBase):
 
-    # @st.cache(persist=True)
+    @st.cache(persist=True)
     def get_visualization_data(self):
         db = init_database(config_name=self.config_name)
         cursor = db[self.collection_name].aggregate([
@@ -64,7 +64,7 @@ class FeatureTypesVisualizer(VisualizerBase):
         df = pd.DataFrame(sorted(items, key=lambda x: x['names_count']))
         cumsum = np.cumsum(df['patient_count'])
         df_ = pd.DataFrame(
-            {'Subset#': list(np.arange(1, len(cumsum) + 1)), "Patients": cumsum,
+            {'Subset#': list(np.arange(1, len(cumsum) + 1)), "Patients": cumsum / list(cumsum)[-1],
              "Feature Count": df['names_count'].values})
         return dict(df=df_, title=self.collection_name, caption=f'Total number of patients: {list(cumsum)[-1]}')
 
@@ -84,8 +84,13 @@ class FeatureTypesVisualizer(VisualizerBase):
 
 def main():
     db = init_database(CONFIG_NAME)
-    for col in tqdm(db.list_collection_names()):
-        FeatureTypesVisualizer.visualize(col, config_name=CONFIG_NAME)
+    for col in tqdm(sorted(db.list_collection_names())):
+        try:
+            st.info(col)
+            FeatureTypesVisualizer.visualize(col, config_name=CONFIG_NAME)
+        except:
+            st.error(col)
+            continue
 
 
 main()
