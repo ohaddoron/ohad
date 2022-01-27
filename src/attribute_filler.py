@@ -95,12 +95,10 @@ class ModelConfig(BaseModel):
     input_features = len(attributes)
 
     encoder_layers_def = [
-        # LayerDef(hidden_dim=2048, activation='Hardswish', batch_norm=True),
         LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True)
     ]
     decoder_layers_def = [
         LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
-        # LayerDef(hidden_dim=2048, activation='Mish', batch_norm=True),
         LayerDef(hidden_dim=input_features, activation='LeakyReLU', batch_norm=True)
     ]
     lr = 1e-3
@@ -521,7 +519,9 @@ def run_attribute_sign_predictor():
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
                       callbacks=[LearningRateMonitor(),
-                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}')]
+                                 ModelCheckpoint(filename=f'attribute-model-{data_config.collection}',
+                                                 dirpath=trainer_config.default_root_dir)
+                                 ]
                       )
     datamodule = DataModule(**data_config.dict())
     # with tempfile.TemporaryDirectory() as t:

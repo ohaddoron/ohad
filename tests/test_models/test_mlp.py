@@ -78,3 +78,42 @@ def test_forward():
     out = model(input_attention)
     loss = MSELoss()(torch.zeros_like(out), out)
     loss.backward()
+
+
+class TestMultiHeadAutoEncoderRegressor:
+    def test_forward(self):
+        model = MultiHeadAutoEncoderRegressor(input_features=1000,
+                                              encoder_layer_defs=[LayerDef(hidden_dim=100,
+                                                                           activation='Mish',
+                                                                           batch_norm=True),
+                                                                  LayerDef(hidden_dim=10,
+                                                                           activation='Mish',
+                                                                           batch_norm=True)
+                                                                  ],
+                                              decoder_layer_defs=[LayerDef(hidden_dim=10,
+                                                                           activation='Hardswish',
+                                                                           batch_norm=True),
+                                                                  LayerDef(hidden_dim=1000,
+                                                                           activation='Hardswish',
+                                                                           batch_norm=True)
+                                                                  ],
+                                              regressor_layer_defs=[LayerDef(hidden_dim=10,
+                                                                             activation='Hardswish',
+                                                                             batch_norm=True),
+                                                                    LayerDef(hidden_dim=15,
+                                                                             activation='LeakyReLU',
+                                                                             batch_norm=True)
+                                                                    ]
+                                              )
+        out = model(torch.rand(4, 1000))
+        assert isinstance(out, dict)
+        assert {'autoencoder', 'regression', 'encoder'} == set(out.keys())
+        loss_ae = torch.sum(out['autoencoder'])
+        loss_regression = torch.sum(out['regression'])
+
+        loss = loss_ae + loss_regression
+        loss.backward()
+
+        assert any(list(model.regressor.parameters())[0].grad[0])
+        assert any(list(model.decoder.parameters())[0].grad[0])
+        assert any(list(model.encoder.parameters())[0].grad[0])

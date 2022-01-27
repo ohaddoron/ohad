@@ -51,9 +51,23 @@ class AutoEncoder(nn.Module):
         self.encoder = Encoder(input_features, encoder_layer_defs)
         self.decoder = Decoder(encoder_layer_defs[-1].hidden_dim, decoder_layer_defs)
 
+    def normalize(self, x: torch.Tensor):
+        return self.zscore(x)
+
+    def denormalize(self, x: torch.Tensor):
+        return self.zscore.forward(x, inverse=True)
+
+    def encode(self, x: torch.Tensor):
+        return self.encoder(x)
+
+    def decode(self, x: torch.Tensor):
+        return self.decoder(x)
+
     def forward(self, x, return_aux: bool = False):
-        encoder_out = self.encoder(self.zscore(x))
-        decoder_out = self.zscore.forward(self.decoder(encoder_out), inverse=False)
+        x = self.normalize(x)
+        encoder_out = self.encode(x)
+        decoder_raw_out = self.decode(encoder_out)
+        decoder_out = self.denormalize(decoder_raw_out)
         if return_aux:
             return dict(out=decoder_out, aux=encoder_out)
         return decoder_out
@@ -93,3 +107,19 @@ class AutoEncoderAttention(nn.Sequential):
 
     def forward(self, input):
         return self.autoencoder(self.attention(input).squeeze())
+
+
+class MultiHeadAutoEncoderRegressor(AutoEncoder):
+    def __init__(self,
+                 input_features,
+                 encoder_layer_defs: tp.List[LayerDef],
+                 decoder_layer_defs: tp.List[LayerDef],
+                 regressor_layer_defs: tp.List[LayerDef]):
+        super().__init__(input_features, encoder_layer_defs, decoder_layer_defs)
+        self.regressor = MLP(encoder_layer_defs[-1].hidden_dim, regressor_layer_defs)
+
+    def forward(self, x, *args, **kwargs):
+        out = super().forward(x, return_aux=True)
+
+        regression_out = self.regressor(out['aux'])
+        return dict(encoder=out['aux'], autoencoder=out['out'], regression=regression_out)
