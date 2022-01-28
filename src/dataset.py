@@ -403,12 +403,14 @@ class MultiOmicsDataset(BaseDataset):
 
         super().__init__(patients)
 
-        self.standardization_dicts = self.get_standardization_dict_multiple_collections(collections=collections,
-                                                                                        patients=patients)
+        self._patients = dict()
+        for col in self._collections:
+            self._patients[col] = self.
 
-    def get_standardization_dict_multiple_collections(self, collections: tp.List[str], patients: tp.List[str]) -> \
-            tp.Dict[str, tp.Dict[str, tp.Dict[str, float]]]:
-        return {col: self.get_standardization_dict(collection=col, patients=patients) for col in collections}
+    def get_patients(self):
+        db = init_database(self.config_name)
+        for col in self._collections:
+            db[col].distinct('patient')
 
     def define_samples(self) -> tp.List[tp.Any]:
         patients_samples_dict = {col: self._get_patient_samples_dict(patients=self.patients, collection=col) for col in
