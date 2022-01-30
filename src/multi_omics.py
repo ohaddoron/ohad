@@ -1,14 +1,19 @@
+import os
 import sys
 from dataclasses import dataclass
 
 import typer
 from pydantic import BaseModel
-from pytorch_lightning import LightningModule
+from pytorch_lightning import LightningModule, LightningDataModule
 from typing import *
 
 from common.database import init_database
+from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
 from src.models import LayerDef
 from src.models.mlp import MultiHeadAutoEncoderRegressor
+from torch.utils.data import DataLoader
+
+from ohad.src.dataset import MultiOmicsDataset
 
 app = typer.Typer()
 
@@ -48,6 +53,52 @@ class MultiOmicsRegressorConfig(BaseModel):
         for modality in modalities}
 
     pass
+
+
+class DataModule(LightningDataModule):
+    def __init__(self, train_patients: List[str],
+                 val_patients: List[str],
+                 collections: List[str],
+                 batch_size: int,
+                 config_name: str,
+                 num_workers=None, *args, **kwargs):
+        super().__init__()
+
+        assert not set(train_patients).intersection(set(val_patients))
+
+        self._train_patients = train_patients
+        self._val_patients = val_patients
+        self._collections = collections
+
+        self._batch_size = batch_size
+        self._num_workers = num_workers or max(os.cpu_count(), 10)
+        self._config_name = config_name
+
+    def train_dataloader(self) -> TRAIN_DATALOADERS:
+        ds = MultiOmicsDataset(patients=self._train_patients,
+                               collections=self._collections,
+                               config_name=self._config_name,
+
+                               )
+        return DataLoader(dataset=ds,
+                          batch_size=self._batch_size,
+                          num_workers=self._num_workers,
+                          shuffle=True,
+                          drop_last=True
+                          )
+
+    def val_dataloader(self) -> EVAL_DATALOADERS:
+        ds = MultiOmicsDataset(patients=self._val_patients,
+                               collections=self._collections,
+                               config_name=self._config_name,
+
+                               )
+        return DataLoader(dataset=ds,
+                          batch_size=self._batch_size,
+                          num_workers=self._num_workers,
+                          shuffle=True,
+                          drop_last=True
+                          )
 
 
 class MultiOmicsRegressor(LightningModule):

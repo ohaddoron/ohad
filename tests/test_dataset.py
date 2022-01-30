@@ -44,6 +44,15 @@ class TestMultiOmicsDataset:
         assert all([isinstance(sample, tuple) for sample in ds.samples])
         assert all([all([isinstance(item, dict) for item in sample]) for sample in ds.samples])
 
+    def test_get_samples(self, ds):
+        item = ds[10]
+        assert isinstance(item, dict)
+        assert set(item.keys()) == {'anchor', 'pos', 'neg'}
+
+        dl = DataLoader(dataset=ds, batch_size=12, num_workers=0)
+        items = next(iter(dl))
+        pass
+
 
 class TestAttentionMixin:
     def test_get_sample(self, patients):

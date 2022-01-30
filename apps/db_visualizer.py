@@ -61,7 +61,7 @@ class FeatureTypesVisualizer(VisualizerBase):
         if not cursor.alive:
             return
         items = list(cursor)
-        df = pd.DataFrame(sorted(items, key=lambda x: x['patient_count']))
+        df = pd.DataFrame(sorted(items, key=lambda x: x['patient_count'], reverse=True))
         cumsum = np.cumsum(df['patient_count'])
         df_ = pd.DataFrame(
             {'Subset#': list(np.arange(1, len(cumsum) + 1)), "Patients": cumsum / list(cumsum)[-1],
@@ -86,6 +86,8 @@ def main():
     db = init_database(CONFIG_NAME)
     for col in tqdm(sorted(db.list_collection_names())):
         try:
+            if col == 'DNAMethylation450k':
+                raise Exception
             st.info(col)
             FeatureTypesVisualizer.visualize(col, config_name=CONFIG_NAME)
         except:

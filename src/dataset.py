@@ -3,6 +3,7 @@ import math
 import random
 import typing as tp
 from abc import abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 
@@ -436,14 +437,83 @@ class MultiOmicsDataset(BaseDataset):
             neg_patient = random.choice(patients_)
 
             samples.append(
-                (
-                    dict(patient=patient, collection=patient_cols[0]),
-                    dict(patient=patient, collection=patient_cols[1]),
-                    dict(patient=neg_patient, collection=r_col)
+                dict(
+                    anchor=dict(patient=patient, collection=patient_cols[0]),
+                    pos=dict(patient=patient, collection=patient_cols[1]),
+                    neg=dict(patient=neg_patient, collection=r_col)
                 )
             )
 
         return samples
+
+    def get_sample_names_for_patient(self, collection: str, patient: str):
+        db = init_database(self.config_name)
+
+        return db[collection].find({'patient': patient}).distinct('sample')
+
+    def get_sample(self, sample: dict) -> dict:
+
+        anchor_sample = random.choice(
+            self.get_sample_names_for_patient(
+                **sample['anchor']
+            )
+        )
+
+        pos_sample = random.choice(
+            self.get_sample_names_for_patient(
+                **sample['pos']
+            )
+        )
+
+        neg_sample = random.choice(
+            self.get_sample_names_for_patient(
+                **sample['neg']
+            )
+        )
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            anchor_attributes = executor.submit(
+                self.get_attributes, sample=anchor_sample, collection_name=sample['anchor']['collection']
+            )
+
+            pos_attributes = executor.submit(
+                self.get_attributes, sample=pos_sample, collection_name=sample['pos']['collection']
+            )
+            neg_attributes = executor.submit(
+                self.get_attributes, sample=neg_sample, collection_name=sample['neg']['collection']
+            )
+
+        anchor_attributes = anchor_attributes.result()
+        pos_attributes = pos_attributes.result()
+        neg_attributes = neg_attributes.result()
+
+        return dict(anchor=anchor_attributes,
+                    pos=pos_attributes,
+                    neg=neg_attributes)
+
+    def get_attributes(self, sample, collection_name: str):
+        db = init_database(self.config_name)
+        raw_attributes_dict = self._get_raw_attributes(collection=collection_name, sample=sample)
+
+        attributes_vec = np.zeros(len(self._get_collection_attributes(collection=collection_name)), dtype=np.float32)
+        attributes = sorted(db[collection_name].distinct('name'))
+
+        for i, attribute in enumerate(attributes):
+            if attribute in raw_attributes_dict.keys():
+                if not math.isnan(raw_attributes_dict[attribute]):
+                    attributes_vec[i] = raw_attributes_dict[attribute]
+                else:
+                    attributes_vec[i] = 0.
+            else:
+                attributes_vec[i] = 0.
+
+        return attributes_vec
+
+    def __getitem__(self, item):
+        return self.get_sample(self.samples[item])
+
+    def __len__(self):
+        return len(self.samples)
 
 
 class AttributeSignDataset(AttributeFillerDataset):
