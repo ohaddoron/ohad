@@ -10,7 +10,8 @@ from src.database import get_segmentation_files, get_dcm_dirs, get_unique_patien
 from src.utils import overlay_segmentation_on_image, get_config
 from common.database import connect_to_database
 
-db_config = get_config('brca-database')
+db_config = get_config('segmentation-explorer')
+
 
 @st.cache(ttl=600)
 def get_unique_barcode_names():
@@ -20,12 +21,13 @@ def get_unique_barcode_names():
 
 @st.cache(ttl=600)
 def get_series_uids_for_display(patient_barcode):
-    series_uids = get_series_uids(collection_name='tcga_breast_radiologist_reads', patient_barcode=patient_barcode, db_config=db_config)
+    series_uids = get_series_uids(collection_name='tcga_breast_radiologist_reads', patient_barcode=patient_barcode,
+                                  db_config=db_config)
     return series_uids
 
 
 def main():
-    with st.sidebar.beta_container():
+    with st.sidebar.container():
         patient_barcode = st.selectbox(
             label='Patient barcode', options=get_unique_barcode_names())
 
@@ -53,13 +55,13 @@ def main():
 
         alpha = st.slider(label='Alpha value', min_value=0., max_value=1., value=0.6)
 
-    with st.beta_container():
+    with st.container():
         for dicom_dir in images_to_display:
             st.header(dicom_dir.split('/')[-1])
 
             images = st.cache(read_dicom_images)(dicom_dir)
             for image, segmentation_slice in zip(images[slice_range[2][0]:slice_range[2][1] + 1], segmentation_slices):
-                cols = st.beta_columns(2)
+                cols = st.columns(2)
 
                 image = (255 * (image / np.max(image))).astype(np.uint8)
 

@@ -38,13 +38,11 @@ class TestMultiOmicsDataset:
     def ds(self, patients):
         return MultiOmicsDataset(patients=patients, collections=['GeneExpression', 'CopyNumber'])
 
-    def test_get_standardization_dict_multiple_collections(self, ds: MultiOmicsDataset):
-        assert isinstance(ds.standardization_dicts, dict)
-        assert {'GeneExpression', 'CopyNumber'} - set(ds.standardization_dicts.keys()) == set()
-
     def test_define_samples(self, ds: MultiOmicsDataset):
         assert all([len(sample) == 3 for sample in ds.samples])
         assert len(ds.samples) == 12
+        assert all([isinstance(sample, tuple) for sample in ds.samples])
+        assert all([all([isinstance(item, dict) for item in sample]) for sample in ds.samples])
 
 
 class TestAttentionMixin:

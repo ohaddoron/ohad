@@ -20,9 +20,12 @@ cache: diskcache.Cache
 
 class BaseDataset(Dataset):
     def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb'):
-        self.patients = patients
         self.config_name = config_name
+        self.patients = self.process_patients(patients)
         self.samples = self.define_samples()
+
+    def process_patients(self, patients):
+        return patients
 
     def get_standardization_values(self, collection: str) -> tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
@@ -403,9 +406,15 @@ class MultiOmicsDataset(BaseDataset):
 
         super().__init__(patients)
 
-        self._patients = dict()
+    def process_patients(self, patients: tp.List):
+        patients_dict = dict()
+
+        db = init_database(self.config_name)
         for col in self._collections:
-            self._patients[col] = self.
+            patients_dict[col] = list(set(db[col].distinct('patient')).intersection(patients))
+
+        self.patients_dict_by_col = patients_dict
+        return patients
 
     def get_patients(self):
         db = init_database(self.config_name)
@@ -413,26 +422,26 @@ class MultiOmicsDataset(BaseDataset):
             db[col].distinct('patient')
 
     def define_samples(self) -> tp.List[tp.Any]:
-        patients_samples_dict = {col: self._get_patient_samples_dict(patients=self.patients, collection=col) for col in
-                                 self._collections}
-        samples = []
-        for col in self._collections[:-1]:
-            for col_ in self._collections[1:]:
-                for patient in self.patients:
-                    _patients = self.patients.copy()
-                    _patients.remove(patient)
 
-                    r_col = random.choice(self._collections)
-                    samples.append(
-                        (
-                            (random.choice(patients_samples_dict[col][patient]), col),
-                            (random.choice(patients_samples_dict[col_][patient]), col_),
-                            (
-                                random.choice(patients_samples_dict[r_col][random.choice(_patients)]),
-                                r_col
-                            )
-                        )
-                    )
+        samples = []
+
+        for patient in self.patients:
+            available_cols = [col for col in self._collections if patient in self.patients_dict_by_col[col]]
+            patient_cols = random.choices(available_cols, k=2)
+            r_col = random.choice(self._collections)
+            patients_ = self.patients_dict_by_col[r_col].copy()
+            if patient in patients_:
+                patients_.remove(patient)
+
+            neg_patient = random.choice(patients_)
+
+            samples.append(
+                (
+                    dict(patient=patient, collection=patient_cols[0]),
+                    dict(patient=patient, collection=patient_cols[1]),
+                    dict(patient=neg_patient, collection=r_col)
+                )
+            )
 
         return samples
 
