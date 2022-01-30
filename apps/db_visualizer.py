@@ -8,7 +8,7 @@ from tqdm import tqdm
 from common.database import init_database
 from src.logger import logger
 
-CONFIG_NAME = 'omicsdb'
+CONFIG_NAME = 'db-visualizer'
 
 
 class VisualizerBase:
@@ -61,7 +61,7 @@ class FeatureTypesVisualizer(VisualizerBase):
         if not cursor.alive:
             return
         items = list(cursor)
-        df = pd.DataFrame(sorted(items, key=lambda x: x['names_count']))
+        df = pd.DataFrame(sorted(items, key=lambda x: x['patient_count']))
         cumsum = np.cumsum(df['patient_count'])
         df_ = pd.DataFrame(
             {'Subset#': list(np.arange(1, len(cumsum) + 1)), "Patients": cumsum / list(cumsum)[-1],
