@@ -288,12 +288,13 @@ def train(modalities: Optional[List[str]] = typer.Option(None)):
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
                       callbacks=[LearningRateMonitor()],
+                      auto_select_gpus=True
 
                       )
     datamodule = DataModule(**data_config.dict())
 
     trainer.fit(model,
-                datamodule=datamodule
+                datamodule=datamodule,
                 )
 
 

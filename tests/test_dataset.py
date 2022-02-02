@@ -77,7 +77,7 @@ class TestMultiOmicsDataset:
                         )
         batch = next(iter(dl))
         assert isinstance(batch, dict)
-        assert set(batch.keys()) == {'anchor', 'pos', 'neg'}
+        assert set(batch.keys()) == {'pos', 'anchor_modality', 'pos_modality', 'neg_modality', 'anchor', 'neg'}
         for value in batch.values():
             assert isinstance(value, torch.Tensor)
 
