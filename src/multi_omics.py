@@ -91,7 +91,7 @@ class TrainerConfig(BaseModel):
     auto_select_gpus = True
     # desired_batch_size = 16
     accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
-    reload_dataloaders_every_epoch = False
+    reload_dataloaders_every_epoch = True
 
     checkpoint_callback = True
     profiler = 'simple'
@@ -102,6 +102,7 @@ class TrainerConfig(BaseModel):
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
     limit_train_batches = 0.01
+    limit_val_batches = 0.01
 
 
 class MultiOmicsRegressorConfig(BaseModel):
@@ -235,17 +236,17 @@ class MultiOmicsRegressor(LightningModule):
             neg_out['encoder']
         )
 
-        self.log(name=f'{purpose}/triplet_loss', value=triplet_loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log(name=f'{purpose}/triplet_loss', value=triplet_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         anchor_reg = self.losses['autoencoding_loss']['fn'](anchor_out['autoencoder'], batch['anchor'])
-        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg, on_step=True, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg, on_step=False, on_epoch=True, sync_dist=True)
         pos_reg = self.losses['autoencoding_loss']['fn'](pos_out['autoencoder'], batch['pos'])
-        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg, on_step=True, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg, on_step=False, on_epoch=True, sync_dist=True)
         neg_reg = self.losses['autoencoding_loss']['fn'](neg_out['autoencoder'], batch['neg'])
-        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg, on_step=True, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg, on_step=False, on_epoch=True, sync_dist=True)
 
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
-        self.log('regression_loss', value=regression_loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
             'autoencoding_loss']['w'] * regression_loss
@@ -288,7 +289,6 @@ def train(modalities: Optional[List[str]] = typer.Option(None)):
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
                       callbacks=[LearningRateMonitor()],
-                      auto_select_gpus=True
 
                       )
     datamodule = DataModule(**data_config.dict())
