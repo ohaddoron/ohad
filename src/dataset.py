@@ -1,6 +1,7 @@
 import json
 import math
 import random
+import tempfile
 import typing as tp
 from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import diskcache
 import numpy as np
+import torch
 from numpy.core._simd import targets
 from torch.utils.data import Dataset
 
@@ -19,7 +21,7 @@ from src.cache import cache
 cache: diskcache.Cache
 
 
-class BaseDataset(Dataset):
+class BaseDataset:
     def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb'):
         self.config_name = config_name
         self.patients = self.process_patients(patients)
@@ -268,12 +270,17 @@ class BaseDataset(Dataset):
         return len(self.samples)
 
 
-class AttributeFillerDataset(BaseDataset):
+class AttributeFillerDataset(BaseDataset, Dataset):
 
-    def __init__(self, patients: tp.List[str],
-                 collection_name: str,
-                 attributes_drop_rate: float = 0.05,
-                 config_name: str = 'omicsdb'):
+    def __init__(
+            self,
+            patients: tp.List[str],
+            collection_name: str,
+            attributes_drop_rate: float = 0.05,
+            config_name: str = 'omicsdb',
+            raw_attributes_file: str = Path(tempfile.gettempdir(), 'raw_attributes_file.json'),
+            override_raw_attributes_file: bool = True
+    ):
         self._collection_name = collection_name
         self._attributes_drop_rate = attributes_drop_rate
 
@@ -282,7 +289,7 @@ class AttributeFillerDataset(BaseDataset):
         db = init_database(config_name=self.config_name)
         self._attributes = db[collection_name].distinct('name')
 
-        self._all_raw_attributes = self._get_all_raw_attributes()
+        self._all_raw_attributes = self._get_all_raw_attributes(patients=self.patients)
 
     def get_attributes(self, sample, collection_name: str):
         # raw_attributes_dict = self._get_raw_attributes(sample=sample, collection=collection_name)
@@ -329,8 +336,8 @@ class AttributeFillerDataset(BaseDataset):
                 patient_samples_dict[patient]]
 
     @staticmethod
-    def get_raw_attributes_query():
-        return [
+    def get_raw_attributes_query(patients: tp.List[str] = None):
+        ppln = [
             {
                 '$group': {
                     '_id': '$sample',
@@ -373,20 +380,35 @@ class AttributeFillerDataset(BaseDataset):
             }
         ]
 
+        if patients is not None:
+            ppln.insert(
+                0,
+                {
+                    '$match': {
+                        'patient': {
+                            '$in': patients
+                        }
+                    }
+                }
+
+            )
+        return ppln
+
     @classmethod
-    def dump_raw_attributes_file(cls, output_file: str, collection: str, config_name: str):
+    def dump_raw_attributes_file(cls, output_file: str, collection: str, config_name: str,
+                                 patients: tp.List[str] = None):
         db = init_database(config_name=config_name)
-        items = list(db[collection].aggregate(cls.get_raw_attributes_query(), allowDiskUse=True))
+        items = list(db[collection].aggregate(cls.get_raw_attributes_query(patients), allowDiskUse=True))
         with open(output_file, 'w') as f:
             json.dump(items, f, indent=2)
 
-    def _get_all_raw_attributes(self):
-        raw_attributes_file = Path(Path(__file__).parent, '../resources/gene_expression_attributes.json')
-        if raw_attributes_file.exists():
-            return json.load(raw_attributes_file.open('r'))
+    def _get_all_raw_attributes(
+            self,
+            patients: tp.List[str] = None
+    ):
+
         db = init_database(config_name=self.config_name)
-        items = list(db[self._collection_name].aggregate(self.get_raw_attributes_query(), allowDiskUse=True))
-        json.dump(items, raw_attributes_file.open('w'), indent=2)
+        items = list(db[self._collection_name].aggregate(self.get_raw_attributes_query(patients), allowDiskUse=True))
         return items
 
 
@@ -401,11 +423,41 @@ class AttentionMixin(AttributeFillerDataset):
         return sample
 
 
-class MultiOmicsDataset(BaseDataset):
-    def __init__(self, patients: tp.List[str], collections: tp.List[str]):
+class MultiOmicsDataset(BaseDataset, Dataset):
+    def __init__(self, patients: tp.List[str], collections: tp.List[str], config_name: str = 'brca-reader'):
         self._collections = collections
 
-        super().__init__(patients)
+        super().__init__(patients, config_name=config_name)
+
+        self.patient_samples_modalities = {
+            collection: self._get_patient_samples_dict(patients=self.patients, collection=collection) for collection in
+            self._collections
+        }
+
+        self.modality_patients = {modality: self._get_patients_in_modality(modality) for modality in self._collections}
+
+    def _get_patient_samples_dict(self, patients: tp.List[str], collection: str) -> dict:
+        patient_samples = dict()
+        db = init_database(self.config_name)
+        for patient in patients:
+            patient_samples[patient] = db[collection].find(dict(patient=patient)).distinct('sample')
+
+        return patient_samples
+
+    def define_samples(self) -> tp.List[tp.Any]:
+
+        samples = []
+        for patient in self.patients:
+            patients: tp.List = self.patients.copy()
+            patients.remove(patient)
+            for patient_ in patients:
+                samples.append((patient, patient_))
+
+        return samples
+
+    def _get_patients_in_modality(self, collection: str):
+        db = init_database(self.config_name)
+        return db[collection].find({'patient': {'$in': self.patients}}).distinct('patient')
 
     def process_patients(self, patients: tp.List):
         patients_dict = dict()
@@ -422,74 +474,116 @@ class MultiOmicsDataset(BaseDataset):
         for col in self._collections:
             db[col].distinct('patient')
 
-    def define_samples(self) -> tp.List[tp.Any]:
-
-        samples = []
-
-        for patient in self.patients:
-            available_cols = [col for col in self._collections if patient in self.patients_dict_by_col[col]]
-            patient_cols = random.choices(available_cols, k=2)
-            r_col = random.choice(self._collections)
-            patients_ = self.patients_dict_by_col[r_col].copy()
-            if patient in patients_:
-                patients_.remove(patient)
-
-            neg_patient = random.choice(patients_)
-
-            samples.append(
-                dict(
-                    anchor=dict(patient=patient, collection=patient_cols[0]),
-                    pos=dict(patient=patient, collection=patient_cols[1]),
-                    neg=dict(patient=neg_patient, collection=r_col)
-                )
-            )
-
-        return samples
-
     def get_sample_names_for_patient(self, collection: str, patient: str):
         db = init_database(self.config_name)
 
         return db[collection].find({'patient': patient}).distinct('sample')
 
-    def get_sample(self, sample: dict) -> dict:
+    def get_base_patient(self, anchor_collection: str, pos_collection: str) -> str:
+        """
+        Returns the base patient to be used as anchor and positive sample. This patient must exist in both the anchor
+        and the positive modality so it must be selected from the subset of patients existing in boths
 
+        :param anchor_collection: name of the anchor collection being used
+        :param pos_collection: name of the positive collection being used
+        :return: name of the selected patient
+        """
+        base_patient = random.choice(
+            list(
+                set(
+                    self.modality_patients[anchor_collection]).intersection(
+                    set(
+                        self.modality_patients[pos_collection]
+                    )
+                )
+            )
+        )
+        return base_patient
+
+    def get_anchor_sample(self, patient: str, collection: str) -> str:
+        """
+        Returns the name of the sample to be used as anchor from the anchor collection
+        :param patient: name of the patient being used. The patient must exist in the requested collection
+        :param collection: name of the anchor collection
+        :return:
+        """
         anchor_sample = random.choice(
             self.get_sample_names_for_patient(
-                **sample['anchor']
+                patient=patient,
+                collection=collection
             )
         )
+        return anchor_sample
 
+    def get_pos_sample(self, patient: str, collection: str) -> str:
+        """
+        Returns the name of the sample to be used as positive from the positive collection
+        :param patient: name of the patient being used. The patient must exist in the requested collection
+        :param collection: name of the positive collection
+        :return:
+        """
         pos_sample = random.choice(
             self.get_sample_names_for_patient(
-                **sample['pos']
+                patient=patient,
+                collection=collection
             )
         )
+        return pos_sample
 
+    def get_neg_sample(self, anchor_patient, collection: str) -> str:
+        """
+        Returns the name of the sample to be used as negative from the negative collection. The patient to be used is
+        selected randomally according to the available patients in the collection but excluding the anchor/positive
+        patient
+
+        :param anchor_patient: id of the patient being used as anchor. This patient must not be selected
+        :param collection: name of the positive collection
+        :return:
+        """
+
+        available_patients: tp.List = self.modality_patients[collection].copy()
+        available_patients.remove(anchor_patient)
         neg_sample = random.choice(
             self.get_sample_names_for_patient(
-                **sample['neg']
+                patient=random.choice(self.modality_patients[collection]),
+                collection=collection
             )
         )
+        return neg_sample
+
+    def get_sample(self,
+                   anchor_collection: str,
+                   pos_collection: str,
+                   neg_collection: str
+                   ) -> dict:
+
+        base_patient = self.get_base_patient(anchor_collection=anchor_collection, pos_collection=pos_collection)
+
+        anchor_sample = self.get_anchor_sample(patient=base_patient, collection=anchor_collection)
+        pos_sample = self.get_pos_sample(patient=base_patient, collection=pos_collection)
+        neg_sample = self.get_neg_sample(anchor_patient=base_patient, collection=neg_collection)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             anchor_attributes = executor.submit(
-                self.get_attributes, sample=anchor_sample, collection_name=sample['anchor']['collection']
+                self.get_attributes, sample=anchor_sample, collection_name=anchor_collection
             )
 
             pos_attributes = executor.submit(
-                self.get_attributes, sample=pos_sample, collection_name=sample['pos']['collection']
+                self.get_attributes, sample=pos_sample, collection_name=pos_collection
             )
             neg_attributes = executor.submit(
-                self.get_attributes, sample=neg_sample, collection_name=sample['neg']['collection']
+                self.get_attributes, sample=neg_sample, collection_name=neg_collection
             )
 
         anchor_attributes = anchor_attributes.result()
         pos_attributes = pos_attributes.result()
         neg_attributes = neg_attributes.result()
 
-        return dict(anchor=anchor_attributes,
-                    pos=pos_attributes,
-                    neg=neg_attributes)
+        return dict(
+            anchor=anchor_attributes,
+            pos=pos_attributes,
+            neg=neg_attributes
+        )
 
     def get_attributes(self, sample, collection_name: str):
         db = init_database(self.config_name)
@@ -509,8 +603,32 @@ class MultiOmicsDataset(BaseDataset):
 
         return attributes_vec
 
+    def get_samples(self, anchor_collection, pos_collection, neg_collection, num_samples: int):
+        return [self.get_sample(anchor_collection=anchor_collection,
+                                pos_collection=pos_collection,
+                                neg_collection=neg_collection)
+                for i in range(num_samples)
+                ]
+
     def __getitem__(self, item):
-        return self.get_sample(self.samples[item])
+        anchor_collection = random.choice(self._collections)
+        collections = self._collections.copy()
+        collections.remove(anchor_collection)
+        pos_collection = random.choice(collections)
+        neg_collection = random.choice(self._collections)
+
+        items = self.get_samples(
+            anchor_collection=anchor_collection,
+            pos_collection=pos_collection,
+            neg_collection=neg_collection,
+            num_samples=len(item)
+        )
+
+        return dict(
+            anchor=torch.from_numpy(np.stack([item['anchor'] for item in items])),
+            pos=torch.from_numpy(np.stack([item['pos'] for item in items])),
+            neg=torch.from_numpy(np.stack([item['neg'] for item in items]))
+        )
 
     def __len__(self):
         return len(self.samples)

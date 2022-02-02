@@ -62,7 +62,7 @@ class DataConfig(BaseModel):
     num_workers: int = 0 if general_config.DEBUG else os.cpu_count()
 
     patients = init_database(general_config.DATABASE_CONFIG_NAME)[general_config.COL].distinct('patient')
-    train_patients = random.choices(patients, k=int(len(patients) * 0.9))
+    train_patients = random.sample(patients, k=int(len(patients) * 0.9))
     val_patients = list(set(patients) - set(train_patients))
 
 
