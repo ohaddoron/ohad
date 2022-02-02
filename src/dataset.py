@@ -429,11 +429,6 @@ class MultiOmicsDataset(BaseDataset, Dataset):
 
         super().__init__(patients, config_name=config_name)
 
-        self.patient_samples_modalities = {
-            collection: self._get_patient_samples_dict(patients=self.patients, collection=collection) for collection in
-            self._collections
-        }
-
         self.modality_patients = {modality: self._get_patients_in_modality(modality) for modality in self._collections}
 
     def _get_patient_samples_dict(self, patients: tp.List[str], collection: str) -> dict:
@@ -449,7 +444,8 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         samples = []
         for patient in self.patients:
             patients: tp.List = self.patients.copy()
-            patients.remove(patient)
+            if patient in patients:
+                patients.remove(patient)
             for patient_ in patients:
                 samples.append((patient, patient_))
 
@@ -542,7 +538,8 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         """
 
         available_patients: tp.List = self.modality_patients[collection].copy()
-        available_patients.remove(anchor_patient)
+        if anchor_patient in available_patients:
+            available_patients.remove(anchor_patient)
         neg_sample = random.choice(
             self.get_sample_names_for_patient(
                 patient=random.choice(self.modality_patients[collection]),
@@ -627,7 +624,11 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         return dict(
             anchor=torch.from_numpy(np.stack([item['anchor'] for item in items])),
             pos=torch.from_numpy(np.stack([item['pos'] for item in items])),
-            neg=torch.from_numpy(np.stack([item['neg'] for item in items]))
+            neg=torch.from_numpy(np.stack([item['neg'] for item in items])),
+            anchor_modality=anchor_collection,
+            pos_modality=pos_collection,
+            neg_modality=neg_collection
+
         )
 
     def __len__(self):
