@@ -87,8 +87,8 @@ class TrainerConfig(BaseModel):
     Trainer configuration
     """
 
-    gpus: int = 1 if torch.cuda.is_available() else None
-    auto_select_gpus = True
+    gpus: int = [1] if torch.cuda.is_available() else None
+    auto_select_gpus = False
     # desired_batch_size = 16
     accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
     reload_dataloaders_every_epoch = True
