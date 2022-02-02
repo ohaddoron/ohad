@@ -142,7 +142,8 @@ class DataModule(LightningDataModule):
                  collections: List[str],
                  batch_size: int,
                  config_name: str,
-                 num_workers=None, *args, **kwargs):
+                 num_workers=None,
+                 *args, **kwargs):
         super().__init__()
 
         assert not set(train_patients).intersection(set(val_patients))
@@ -246,7 +247,7 @@ class MultiOmicsRegressor(LightningModule):
         self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg, on_step=False, on_epoch=True, sync_dist=True)
 
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
-        self.log('regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
             'autoencoding_loss']['w'] * regression_loss
