@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -7,6 +8,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+import toml
 import torch
 import typer
 from pydantic import BaseModel
@@ -42,7 +44,6 @@ class GeneralConfig(BaseModel):
         'CopyNumber',
         'PathwayActivity',
         'TranscriptionFactorHiSeqV2'
-
     ]
 
     DEBUG = getattr(sys, 'gettrace', None)() is not None
@@ -75,7 +76,7 @@ class DataConfig(BaseModel):
     patients = get_patient_name_set(general_config.modalities, config_name=general_config.DATABASE_CONFIG_NAME)
     train_patients = random.sample(patients, k=int(len(patients) * 0.9))
     val_patients = list(set(patients) - set(train_patients))
-    collections = GeneralConfig().modalities
+    collections = general_config.modalities
 
     def __hash__(self):
         return hash(repr(self))
@@ -110,11 +111,11 @@ class MultiOmicsRegressorConfig(BaseModel):
     modalities = general_config.modalities
 
     modalities_model_def = {modality: dict(
-        input_features=get_num_attributes(GeneralConfig(), modality=modality),
+        input_features=get_num_attributes(general_config, modality=modality),
         encoder_layer_defs=[LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True)],
         decoder_layer_defs=[
             LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
-            LayerDef(hidden_dim=(get_num_attributes(general_config=GeneralConfig(), modality=modality)),
+            LayerDef(hidden_dim=(get_num_attributes(general_config=general_config, modality=modality)),
                      activation='LeakyReLU', batch_norm=True)
         ],
         regressor_layer_defs=[
@@ -122,7 +123,7 @@ class MultiOmicsRegressorConfig(BaseModel):
             LayerDef(hidden_dim=1, activation='ReLU', batch_norm=True)
         ]
     )
-        for modality in modalities}
+        for modality, general_config in zip(modalities, [general_config] * len(modalities))}
 
     lr = 1e-3
     loss_config = dict(
@@ -265,12 +266,36 @@ class MultiOmicsRegressor(LightningModule):
         )
 
 
+def load_config_from_file(cls, config_path: str, **kwargs):
+    if config_path is not None:
+        return cls(**toml.load(Path(config_path).open()), **kwargs)
+    return cls(**kwargs)
+
+
 @app.command()
-def train(modalities: Optional[List[str]] = typer.Option(None)):
-    general_config: GeneralConfig = GeneralConfig()
-    data_config: DataConfig = DataConfig(general_config=general_config)
-    trainer_config: TrainerConfig = TrainerConfig()
-    multi_omics_regressor_config: MultiOmicsRegressorConfig = MultiOmicsRegressorConfig()
+def train(general_config_path: str = typer.Option(None,
+
+                                                  help=f'Path to a general config file containing any of the '
+                                                       f'following keys: {", ".join(GeneralConfig().dict().keys())}'),
+          data_config_path: str = typer.Option(None,
+                                               help=f'Path to a data config file containing any of the '
+                                                    f'following keys: {", ".join(DataConfig().dict().keys())}'),
+          trainer_config_path: str = typer.Option(None,
+                                                  help=f'Path to a trainer config file containing any of the '
+                                                       f'following keys: {", ".join(TrainerConfig().dict().keys())}'),
+          multi_omics_regressor_config_path: str = typer.Option(None,
+                                                                help=f'Path to a multi_omics_regressor config file '
+                                                                     f'containing any of the '
+                                                                     f'following keys: {", ".join(MultiOmicsRegressorConfig().dict().keys())}')
+          ):
+    general_config: GeneralConfig = load_config_from_file(GeneralConfig, config_path=general_config_path)
+    data_config: DataConfig = load_config_from_file(DataConfig, config_path=data_config_path,
+                                                    general_config=general_config)
+    trainer_config: TrainerConfig = load_config_from_file(TrainerConfig, config_path=trainer_config_path)
+    multi_omics_regressor_config: MultiOmicsRegressorConfig = load_config_from_file(MultiOmicsRegressorConfig,
+                                                                                    config_path=multi_omics_regressor_config_path,
+                                                                                    general_config=general_config)
+
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
     wandb_logger = WandbLogger(f"MultiOmics",
