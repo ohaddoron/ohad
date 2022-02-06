@@ -49,7 +49,7 @@ class GeneralConfig(BaseModel):
     ]
 
     DEBUG = getattr(sys, 'gettrace', None)() is not None
-    DATABASE_CONFIG_NAME = 'omicsdb'
+    DATABASE_CONFIG_NAME = 'brca-reader'
     OVERRIDE_ATTRIBUTES_FILE = True
 
     def __hash__(self):
@@ -124,7 +124,8 @@ class MultiOmicsRegressorConfig(BaseModel):
         regressor_layer_defs=[
             LayerDef(hidden_dim=64, activation='Mish', batch_norm=True),
             LayerDef(hidden_dim=1, activation='ReLU', batch_norm=True)
-        ]
+        ],
+        detach_encodings=False
     )
         for modality, general_config in zip(modalities, [general_config] * len(modalities))}
 
@@ -157,7 +158,7 @@ class DataModule(LightningDataModule):
         self._collections = collections
 
         self._batch_size = batch_size
-        self._num_workers = num_workers or max(os.cpu_count(), 10)
+        self._num_workers = num_workers if num_workers is not None else max(os.cpu_count(), 10)
         self._config_name = config_name
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
@@ -247,6 +248,7 @@ class MultiOmicsRegressor(LightningModule):
         return opts
 
     def step(self, batch, purpose: str):
+        optimizers = self.optimizers()
         anchor_out = self.models[batch['anchor_modality']](batch['anchor'])
         pos_out = self.models[batch['pos_modality']](batch['pos'])
         neg_out = self.models[batch['neg_modality']](batch['neg'])
@@ -256,14 +258,32 @@ class MultiOmicsRegressor(LightningModule):
             pos_out['encoder'],
             neg_out['encoder']
         )
+        if purpose == 'train':
+            optimizers[0].optimizer.zero_grad()
+            self.manual_backward(loss=triplet_loss)
+            optimizers[0].optimizer.step()
 
         self.log(name=f'{purpose}/triplet_loss', value=triplet_loss, on_step=False, on_epoch=True, sync_dist=True)
 
         anchor_reg = self.losses['autoencoding_loss']['fn'](anchor_out['autoencoder'], batch['anchor'])
+        if purpose == 'train':
+            optimizers[self.modalities.index(batch['anchor_modality']) + 1].optimizer.zero_grad()
+            self.manual_backward(anchor_reg)
+            optimizers[self.modalities.index(batch['anchor_modality']) + 1].optimizer.step()
         self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg, on_step=False, on_epoch=True, sync_dist=True)
+
         pos_reg = self.losses['autoencoding_loss']['fn'](pos_out['autoencoder'], batch['pos'])
+        if purpose == 'train':
+            optimizers[self.modalities.index(batch['pos_modality']) + 1].optimizer.zero_grad()
+            self.manual_backward(pos_reg)
+            optimizers[self.modalities.index(batch['pos_modality']) + 1].optimizer.step()
         self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg, on_step=False, on_epoch=True, sync_dist=True)
+
         neg_reg = self.losses['autoencoding_loss']['fn'](neg_out['autoencoder'], batch['neg'])
+        if purpose == 'train':
+            optimizers[self.modalities.index(batch['neg_modality']) + 1].optimizer.zero_grad()
+            self.manual_backward(neg_reg)
+            optimizers[self.modalities.index(batch['neg_modality']) + 1].optimizer.step()
         self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg, on_step=False, on_epoch=True, sync_dist=True)
 
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
@@ -326,13 +346,16 @@ def train(general_config_path: str = typer.Option(None,
 
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
-    wandb_logger = WandbLogger(f"MultiOmics",
-                               log_model=True,
-                               save_dir=trainer_config.default_root_dir)
+    if not general_config.DEBUG:
+        wandb_logger = WandbLogger(f"MultiOmics",
+                                   log_model=True,
+                                   save_dir=trainer_config.default_root_dir)
 
-    wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
-                                               data_config=data_config.dict(),
-                                               trainer_config=trainer_config.dict()))
+        wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
+                                                   data_config=data_config.dict(),
+                                                   trainer_config=trainer_config.dict()))
+    else:
+        wandb_logger = None
 
     model = MultiOmicsRegressor(modalities_model_config=multi_omics_regressor_config.modalities_model_def,
                                 train_patients=data_config.train_patients,

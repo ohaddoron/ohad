@@ -44,8 +44,10 @@ class Decoder(MLP):
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, input_features, encoder_layer_defs: tp.List[LayerDef], decoder_layer_defs: tp.List[LayerDef]):
+    def __init__(self, input_features, encoder_layer_defs: tp.List[LayerDef], decoder_layer_defs: tp.List[LayerDef],
+                 detach_encodings: bool = False):
         super().__init__()
+        self.detach_encodings = detach_encodings
         self.zscore = ZScoreLayer(input_features)
 
         self.encoder = Encoder(input_features, encoder_layer_defs)
@@ -65,7 +67,9 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x, return_aux: bool = False):
         x = self.normalize(x)
-        encoder_out = self.encode(x)
+        encoder_out: torch.Tensor = self.encode(x)
+        if self.detach_encodings:
+            encoder_out = encoder_out.detach()
         decoder_raw_out = self.decode(encoder_out)
         decoder_out = self.denormalize(decoder_raw_out)
         if return_aux:
@@ -114,8 +118,9 @@ class MultiHeadAutoEncoderRegressor(AutoEncoder):
                  input_features,
                  encoder_layer_defs: tp.List[LayerDef],
                  decoder_layer_defs: tp.List[LayerDef],
-                 regressor_layer_defs: tp.List[LayerDef]):
-        super().__init__(input_features, encoder_layer_defs, decoder_layer_defs)
+                 regressor_layer_defs: tp.List[LayerDef],
+                 detach_encodings: bool = False):
+        super().__init__(input_features, encoder_layer_defs, decoder_layer_defs, detach_encodings=detach_encodings)
         self.regressor = MLP(encoder_layer_defs[-1].hidden_dim, regressor_layer_defs)
 
     def forward(self, x, *args, **kwargs):
