@@ -31,6 +31,8 @@ app = typer.Typer()
 
 warnings.filterwarnings("ignore")
 
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 def get_num_attributes(general_config, modality):
     attributes = init_database(general_config.DATABASE_CONFIG_NAME)[modality].distinct('name')
