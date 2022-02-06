@@ -49,7 +49,7 @@ class GeneralConfig(BaseModel):
     ]
 
     DEBUG = getattr(sys, 'gettrace', None)() is not None
-    DATABASE_CONFIG_NAME = 'brca-reader'
+    DATABASE_CONFIG_NAME = 'omicsdb'
     OVERRIDE_ATTRIBUTES_FILE = True
 
     def __hash__(self):
@@ -90,10 +90,11 @@ class TrainerConfig(BaseModel):
     Trainer configuration
     """
 
-    gpus: int = [1] if torch.cuda.is_available() else None
-    auto_select_gpus = False
+    gpus: int = 1 if torch.cuda.is_available() else None
+    auto_select_gpus = True
     # desired_batch_size = 16
-    accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
+    # accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
+    accumulate_grad_batches = 1
     reload_dataloaders_every_epoch = True
 
     checkpoint_callback = True
@@ -162,6 +163,7 @@ class DataModule(LightningDataModule):
     def train_dataloader(self) -> TRAIN_DATALOADERS:
         ds = MultiOmicsDataset(patients=self._train_patients,
                                collections=self._collections,
+                               config_name=self._config_name
 
                                )
 
@@ -176,6 +178,7 @@ class DataModule(LightningDataModule):
     def val_dataloader(self) -> EVAL_DATALOADERS:
         ds = MultiOmicsDataset(patients=self._val_patients,
                                collections=self._collections,
+                               config_name=self._config_name
                                )
         return DataLoader(dataset=ds,
                           num_workers=self._num_workers,
@@ -217,6 +220,8 @@ class MultiOmicsRegressor(LightningModule):
 
         self.losses = self.losses_definitions()
 
+        self.automatic_optimization = False
+
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         return self.step(batch, purpose='train')
 
@@ -227,7 +232,19 @@ class MultiOmicsRegressor(LightningModule):
         return self.step(batch, purpose='test')
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.models.parameters(), lr=self.lr)
+        opts = []
+
+        encoder_parameters = []
+        for modality in self.modalities:
+            model: MultiHeadAutoEncoderRegressor = self.models[modality]
+            encoder_parameters += list(model.encoder.parameters())
+        opts.append(torch.optim.Adam(encoder_parameters, lr=self.lr))
+
+        for modality in self.modalities:
+            model: MultiHeadAutoEncoderRegressor = self.models[modality]
+            opts.append(torch.optim.Adam(model.decoder.parameters()))
+
+        return opts
 
     def step(self, batch, purpose: str):
         anchor_out = self.models[batch['anchor_modality']](batch['anchor'])
@@ -252,8 +269,17 @@ class MultiOmicsRegressor(LightningModule):
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
         self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
 
-        return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
-            'autoencoding_loss']['w'] * regression_loss
+        # return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
+        #     'autoencoding_loss']['w'] * regression_loss
+        return dict(
+            triplet=triplet_loss,
+            regression=
+            {
+                batch['anchor']: anchor_reg,
+                batch['pos']: pos_reg,
+                batch['neg']: neg_reg
+            }
+        )
 
     def losses_definitions(self):
         return dict(
