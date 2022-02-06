@@ -121,5 +121,7 @@ class MultiHeadAutoEncoderRegressor(AutoEncoder):
     def forward(self, x, *args, **kwargs):
         out = super().forward(x, return_aux=True)
 
+        out['aux'] = out['aux'] / torch.norm(out['aux'], p=2)
+
         regression_out = self.regressor(out['aux'])
         return dict(encoder=out['aux'], autoencoder=out['out'], regression=regression_out)
