@@ -45,7 +45,6 @@ class GeneralConfig(BaseModel):
         'GeneExpressionGDC',
         'CopyNumber',
         'PathwayActivity',
-        'TranscriptionFactorHiSeqV2'
     ]
 
     DEBUG = getattr(sys, 'gettrace', None)() is not None
@@ -104,8 +103,8 @@ class TrainerConfig(BaseModel):
 
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
-    limit_train_batches = 0.01
-    limit_val_batches = 0.01
+    limit_train_batches = 0.005
+    limit_val_batches = 0.3
 
 
 class MultiOmicsRegressorConfig(BaseModel):
@@ -180,7 +179,7 @@ class DataModule(LightningDataModule):
         return DataLoader(dataset=ds,
                           num_workers=self._num_workers,
                           batch_size=None,
-                          sampler=BatchSampler(sampler=SequentialSampler(data_source=ds), batch_size=self._batch_size,
+                          sampler=BatchSampler(sampler=RandomSampler(data_source=ds), batch_size=self._batch_size,
                                                drop_last=True),
                           collate_fn=None
                           )
