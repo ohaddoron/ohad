@@ -70,7 +70,7 @@ class DataConfig(BaseModel):
     """
     general_config = GeneralConfig()
     config_name = general_config.DATABASE_CONFIG_NAME
-    batch_size = 4
+    batch_size = 32
 
     num_workers: int = 0 if general_config.DEBUG else os.cpu_count()
 
@@ -91,19 +91,20 @@ class TrainerConfig(BaseModel):
 
     gpus: int = [1] if torch.cuda.is_available() else None
     auto_select_gpus = False
-    # desired_batch_size = 16
-    accumulate_grad_batches = max(1, 16 // DataConfig().batch_size)
+    # desired_batch_size = 32
+    accumulate_grad_batches = max(1, 32 // DataConfig().batch_size)
     reload_dataloaders_every_epoch = True
 
-    checkpoint_callback = True
+    enable_checkpointing = True
+
     profiler = 'simple'
     fast_dev_run = GeneralConfig().DEBUG
-    progress_bar_refresh_rate = 5
+    progress_bar_refresh_rate = 1
     max_epochs = int(1e6)
 
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
-    limit_train_batches = 0.005
+    limit_train_batches = 100
     limit_val_batches = 0.3
 
 
@@ -132,7 +133,7 @@ class MultiOmicsRegressorConfig(BaseModel):
         triplet_loss=dict(margin=1.0, p=2.0, eps=1e-06, swap=True),
         autoencoding_loss=dict()
     )
-    loss_weight_dict = dict(triplet_loss=0.3, autoencoding_loss=0.7)
+    loss_weight_dict = dict(triplet_loss=0.9, autoencoding_loss=0.2)
 
     def __hash__(self):
         return hash(repr(self))
@@ -252,8 +253,9 @@ class MultiOmicsRegressor(LightningModule):
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
         self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
 
-        return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
-            'autoencoding_loss']['w'] * regression_loss
+        # return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
+        #     'autoencoding_loss']['w'] * regression_loss
+        return triplet_loss
 
     def losses_definitions(self):
         return dict(
@@ -300,13 +302,18 @@ def train(general_config_path: str = typer.Option(None,
 
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
-    wandb_logger = WandbLogger(f"MultiOmics",
-                               log_model=True,
-                               save_dir=trainer_config.default_root_dir)
+    if not general_config.DEBUG:
+        wandb_logger = WandbLogger(f"MultiOmics",
+                                   log_model=True,
+                                   save_dir=trainer_config.default_root_dir)
 
-    wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
-                                               data_config=data_config.dict(),
-                                               trainer_config=trainer_config.dict()))
+        wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
+                                                   data_config=data_config.dict(),
+                                                   trainer_config=trainer_config.dict()))
+        model_checkpoint = ModelCheckpoint(dirpath=Path(wandb_logger.save_dir, wandb_logger.version, 'files'))
+    else:
+        wandb_logger = None
+        model_checkpoint = ModelCheckpoint()
 
     model = MultiOmicsRegressor(modalities_model_config=multi_omics_regressor_config.modalities_model_def,
                                 train_patients=data_config.train_patients,
@@ -316,7 +323,7 @@ def train(general_config_path: str = typer.Option(None,
 
     trainer = Trainer(**trainer_config.dict(),
                       logger=[wandb_logger if not general_config.DEBUG else False],
-                      callbacks=[LearningRateMonitor()],
+                      callbacks=[LearningRateMonitor(), model_checkpoint],
 
                       )
     datamodule = DataModule(**data_config.dict())

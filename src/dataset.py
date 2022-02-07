@@ -581,7 +581,8 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             pos=pos_attributes,
             neg=neg_attributes
         )
-    
+
+    @lru_cache
     def get_attributes(self, sample, collection_name: str):
         db = init_database(self.config_name)
         raw_attributes_dict = self._get_raw_attributes(collection=collection_name, sample=sample)
