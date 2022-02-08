@@ -22,17 +22,29 @@ cache: diskcache.Cache
 
 
 class BaseDataset:
-    def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb'):
+    def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb', get_from_redis: bool = False):
         self.config_name = config_name
         self.patients = self.process_patients(patients)
         self.samples = self.define_samples()
+        self._get_from_redis = get_from_redis
+        if get_from_redis:
+            import redis
+            self._redis = redis.Redis(
+                host='localhost',
+                port=6379,
+            )
+            if not self._redis.ping():
+                self._redis = None
+                self._get_from_redis = False
+        else:
+            self._redis = None
 
     def process_patients(self, patients):
         return patients
 
     def get_standardization_values(self, collection: str) -> tp.Dict[str, tp.Dict[str, float]]:
         logger.info('Getting standardization values')
-        db = init_database(config_name=self._config_name)
+        db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate([
             {
                 '$group': {
@@ -137,6 +149,11 @@ class BaseDataset:
         return {key: value for key, value in items.items() if key in patients}
 
     def _get_raw_attributes(self, collection: str, sample: str):
+        if self._get_from_redis:
+            redis_id = f'{sample}-{collection}'
+            attributes = self._redis.get(redis_id)
+            if attributes is not None:
+                return json.loads(attributes)
         db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate([
             {
@@ -424,10 +441,11 @@ class AttentionMixin(AttributeFillerDataset):
 
 
 class MultiOmicsDataset(BaseDataset, Dataset):
-    def __init__(self, patients: tp.List[str], collections: tp.List[str], config_name: str = 'brca-reader'):
+    def __init__(self, patients: tp.List[str], collections: tp.List[str], config_name: str = 'brca-reader',
+                 get_from_redis: bool = False):
         self._collections = collections
 
-        super().__init__(patients, config_name=config_name)
+        super().__init__(patients, config_name=config_name, get_from_redis=get_from_redis)
 
         self.modality_patients = {modality: self._get_patients_in_modality(modality) for modality in self._collections}
 
@@ -526,7 +544,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         )
         return pos_sample
 
-    def get_neg_sample(self, anchor_patient, collection: str) -> str:
+    def get_neg_sample(self, anchor_patient, collection: str) -> tp.Tuple[str, str]:
         """
         Returns the name of the sample to be used as negative from the negative collection. The patient to be used is
         selected randomally according to the available patients in the collection but excluding the anchor/positive
@@ -540,9 +558,10 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         available_patients: tp.List = self.modality_patients[collection].copy()
         if anchor_patient in available_patients:
             available_patients.remove(anchor_patient)
+        neg_patient = random.choice(self.modality_patients[collection])
         neg_sample = random.choice(
             self.get_sample_names_for_patient(
-                patient=random.choice(self.modality_patients[collection]),
+                patient=neg_patient,
                 collection=collection
             )
         )
@@ -560,21 +579,11 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         pos_sample = self.get_pos_sample(patient=base_patient, collection=pos_collection)
         neg_sample = self.get_neg_sample(anchor_patient=base_patient, collection=neg_collection)
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            anchor_attributes = executor.submit(
-                self.get_attributes, sample=anchor_sample, collection_name=anchor_collection
-            )
+        anchor_attributes = self.get_attributes(sample=anchor_sample, collection_name=anchor_collection)
 
-            pos_attributes = executor.submit(
-                self.get_attributes, sample=pos_sample, collection_name=pos_collection
-            )
-            neg_attributes = executor.submit(
-                self.get_attributes, sample=neg_sample, collection_name=neg_collection
-            )
+        pos_attributes = self.get_attributes(sample=pos_sample, collection_name=pos_collection)
 
-        anchor_attributes = anchor_attributes.result()
-        pos_attributes = pos_attributes.result()
-        neg_attributes = neg_attributes.result()
+        neg_attributes = self.get_attributes(sample=neg_sample, collection_name=neg_collection)
 
         return dict(
             anchor=anchor_attributes,
@@ -582,7 +591,6 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             neg=neg_attributes
         )
 
-    @lru_cache
     def get_attributes(self, sample, collection_name: str):
         db = init_database(self.config_name)
         raw_attributes_dict = self._get_raw_attributes(collection=collection_name, sample=sample)

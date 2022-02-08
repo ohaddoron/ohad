@@ -70,7 +70,7 @@ class DataConfig(BaseModel):
     """
     general_config = GeneralConfig()
     config_name = general_config.DATABASE_CONFIG_NAME
-    batch_size = 32
+    batch_size = 128
 
     num_workers: int = 0 if general_config.DEBUG else os.cpu_count()
 
@@ -92,7 +92,7 @@ class TrainerConfig(BaseModel):
     gpus: int = [1] if torch.cuda.is_available() else None
     auto_select_gpus = False
     # desired_batch_size = 32
-    accumulate_grad_batches = max(1, 32 // DataConfig().batch_size)
+    accumulate_grad_batches = max(1, 128 // DataConfig().batch_size)
     reload_dataloaders_every_epoch = True
 
     enable_checkpointing = True
