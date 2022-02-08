@@ -153,7 +153,9 @@ class BaseDataset:
             redis_id = f'{sample}-{collection}'
             attributes = self._redis.get(redis_id)
             if attributes is not None:
+                logger.debug('Found in redis')
                 return json.loads(attributes)
+        logger.debug(f'Not found in redis {sample}')
         db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate([
             {

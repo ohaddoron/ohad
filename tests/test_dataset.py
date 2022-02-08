@@ -66,7 +66,7 @@ class TestMultiOmicsDataset:
     @pytest.fixture
     def ds(self, patients):
         return MultiOmicsDataset(patients=patients, collections=['GeneExpression', 'CopyNumber'],
-                                 config_name='brca-reader')
+                                 config_name='brca-reader', get_from_redis=True)
 
     def test_get_samples(self, ds):
         dl = DataLoader(dataset=ds,
@@ -79,7 +79,7 @@ class TestMultiOmicsDataset:
         assert isinstance(batch, dict)
         assert set(batch.keys()) == {'pos', 'anchor_modality', 'pos_modality', 'neg_modality', 'anchor', 'neg'}
         for value in batch.values():
-            assert isinstance(value, torch.Tensor)
+            assert isinstance(value, (torch.Tensor, str))
 
 
 class TestAttentionMixin:
