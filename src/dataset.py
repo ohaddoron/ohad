@@ -2,6 +2,7 @@ import json
 import math
 import random
 import tempfile
+import time
 import typing as tp
 from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor
@@ -19,6 +20,14 @@ from src.logger import logger
 from src.cache import cache
 
 cache: diskcache.Cache
+
+
+def time_elapsed(fn, *args, **kwargs):
+    start = time.time()
+    out = fn(*args, **kwargs)
+    elapsed = time.time() - start
+    print(f'\n{elapsed}')
+    return elapsed
 
 
 class BaseDataset:
@@ -153,9 +162,9 @@ class BaseDataset:
             redis_id = f'{sample}-{collection}'
             attributes = self._redis.get(redis_id)
             if attributes is not None:
-                logger.debug('Found in redis')
+                # logger.debug('Found in redis')
                 return json.loads(attributes)
-        logger.debug(f'Not found in redis {sample}')
+        logger.debug(f'Not found in redis {sample}-{collection}')
         db = init_database(config_name=self.config_name)
         return next(db[collection].aggregate([
             {
@@ -449,7 +458,40 @@ class MultiOmicsDataset(BaseDataset, Dataset):
 
         super().__init__(patients, config_name=config_name, get_from_redis=get_from_redis)
 
+        db = init_database(config_name=config_name)
+        self.attributes_order = {collection_name: sorted(db[collection_name].distinct('name')) for collection_name in
+                                 self._collections}
+
+        self.patient_names_col_samples = {
+            col: self.get_all_patients_samples_in_collection(collection=col) for col in self._collections
+        }
+
         self.modality_patients = {modality: self._get_patients_in_modality(modality) for modality in self._collections}
+
+    def get_all_patients_samples_in_collection(self, collection: str):
+        db = init_database(self.config_name)
+        if hash(f'get_all_patients_samples_in_collection-{collection}') in cache:
+            return cache.get(hash(f'get_all_patients_samples_in_collection-{collection}'))
+
+        res = {item['patient']: item['samples'] for item in (db[collection].aggregate([
+            {
+                '$group': {
+                    '_id': '$patient',
+                    'samples': {
+                        '$push': '$sample'
+                    }
+                }
+            }, {
+                '$project': {
+                    'patient': '$_id',
+                    '_id': 0,
+                    'samples': 1
+                }
+            }
+        ], allowDiskUse=True)
+        )}
+        cache[hash(f'get_all_patients_samples_in_collection-{collection}')] = res
+        return res
 
     def _get_patient_samples_dict(self, patients: tp.List[str], collection: str) -> dict:
         patient_samples = dict()
@@ -524,10 +566,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         :return:
         """
         anchor_sample = random.choice(
-            self.get_sample_names_for_patient(
-                patient=patient,
-                collection=collection
-            )
+            self.patient_names_col_samples[collection][patient]
         )
         return anchor_sample
 
@@ -539,10 +578,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         :return:
         """
         pos_sample = random.choice(
-            self.get_sample_names_for_patient(
-                patient=patient,
-                collection=collection
-            )
+            self.patient_names_col_samples[collection][patient]
         )
         return pos_sample
 
@@ -562,10 +598,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             available_patients.remove(anchor_patient)
         neg_patient = random.choice(self.modality_patients[collection])
         neg_sample = random.choice(
-            self.get_sample_names_for_patient(
-                patient=neg_patient,
-                collection=collection
-            )
+            self.patient_names_col_samples[collection][neg_patient]
         )
         return neg_sample
 
@@ -594,11 +627,12 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         )
 
     def get_attributes(self, sample, collection_name: str):
-        db = init_database(self.config_name)
         raw_attributes_dict = self._get_raw_attributes(collection=collection_name, sample=sample)
 
-        attributes_vec = np.zeros(len(self._get_collection_attributes(collection=collection_name)), dtype=np.float32)
-        attributes = sorted(db[collection_name].distinct('name'))
+        attributes = self.attributes_order[collection_name]
+        attributes_vec = np.zeros(len(attributes), dtype=np.float32)
+
+        # attributes = db[collection_name].distinct('name').sort()
 
         for i, attribute in enumerate(attributes):
             if attribute in raw_attributes_dict.keys():
@@ -612,6 +646,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         return attributes_vec
 
     def get_samples(self, anchor_collection, pos_collection, neg_collection, num_samples: int):
+
         return [self.get_sample(anchor_collection=anchor_collection,
                                 pos_collection=pos_collection,
                                 neg_collection=neg_collection)

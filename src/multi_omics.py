@@ -163,6 +163,7 @@ class DataModule(LightningDataModule):
     def train_dataloader(self) -> TRAIN_DATALOADERS:
         ds = MultiOmicsDataset(patients=self._train_patients,
                                collections=self._collections,
+                               get_from_redis=True
 
                                )
 
@@ -177,6 +178,8 @@ class DataModule(LightningDataModule):
     def val_dataloader(self) -> EVAL_DATALOADERS:
         ds = MultiOmicsDataset(patients=self._val_patients,
                                collections=self._collections,
+                               get_from_redis=True
+
                                )
         return DataLoader(dataset=ds,
                           num_workers=self._num_workers,
@@ -293,6 +296,7 @@ def train(general_config_path: str = typer.Option(None,
                                                                      f'following keys: {", ".join(MultiOmicsRegressorConfig().dict().keys())}')
           ):
     general_config: GeneralConfig = load_config_from_file(GeneralConfig, config_path=general_config_path)
+
     data_config: DataConfig = load_config_from_file(DataConfig, config_path=data_config_path,
                                                     general_config=general_config)
     trainer_config: TrainerConfig = load_config_from_file(TrainerConfig, config_path=trainer_config_path)
