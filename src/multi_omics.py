@@ -7,7 +7,7 @@ import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-
+from src.logger import logger
 import toml
 import torch
 import typer
@@ -30,8 +30,6 @@ from src.dataset import MultiOmicsDataset
 app = typer.Typer()
 
 warnings.filterwarnings("ignore")
-
-torch.multiprocessing.set_sharing_strategy('file_system')
 
 
 def get_num_attributes(general_config, modality):
@@ -70,9 +68,9 @@ class DataConfig(BaseModel):
     """
     general_config = GeneralConfig()
     config_name = general_config.DATABASE_CONFIG_NAME
-    batch_size = 128
+    batch_size = 32
 
-    num_workers: int = 0 if general_config.DEBUG else os.cpu_count()
+    num_workers: int = 0 if general_config.DEBUG else min(os.cpu_count(), 16)
 
     patients = get_patient_name_set(general_config.modalities, config_name=general_config.DATABASE_CONFIG_NAME)
     train_patients = random.sample(patients, k=int(len(patients) * 0.9))
@@ -92,8 +90,8 @@ class TrainerConfig(BaseModel):
     gpus: int = [1] if torch.cuda.is_available() else None
     auto_select_gpus = False
     # desired_batch_size = 32
-    accumulate_grad_batches = max(1, 128 // DataConfig().batch_size)
-    reload_dataloaders_every_epoch = True
+    accumulate_grad_batches = max(1, 32 // DataConfig().batch_size)
+    reload_dataloaders_every_epoch = False
 
     enable_checkpointing = True
 
@@ -114,8 +112,9 @@ class MultiOmicsRegressorConfig(BaseModel):
 
     modalities_model_def = {modality: dict(
         input_features=get_num_attributes(general_config, modality=modality),
-        encoder_layer_defs=[LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
-                            LayerDef(hidden_dim=32, activation='Hardswish', batch_norm=True)],
+        encoder_layer_defs=[
+            LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
+            LayerDef(hidden_dim=32, activation='Softmax', batch_norm=True)],
         decoder_layer_defs=[
             LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
             LayerDef(hidden_dim=(get_num_attributes(general_config=general_config, modality=modality)),
@@ -157,7 +156,7 @@ class DataModule(LightningDataModule):
         self._collections = collections
 
         self._batch_size = batch_size
-        self._num_workers = num_workers or max(os.cpu_count(), 10)
+        self._num_workers = num_workers or min(os.cpu_count(), 8)
         self._config_name = config_name
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
@@ -307,14 +306,14 @@ def train(general_config_path: str = typer.Option(None,
     os.makedirs(Path(trainer_config.default_root_dir, 'wandb').as_posix(), exist_ok=True)
 
     if not general_config.DEBUG:
-        wandb_logger = WandbLogger(f"MultiOmics",
+        wandb_logger = WandbLogger(name=f"MultiOmics",
                                    log_model=True,
                                    save_dir=trainer_config.default_root_dir)
 
         wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
                                                    data_config=data_config.dict(),
                                                    trainer_config=trainer_config.dict()))
-        model_checkpoint = ModelCheckpoint(dirpath=Path(wandb_logger.save_dir, wandb_logger.version, 'files'))
+        model_checkpoint = ModelCheckpoint(dirpath=wandb_logger.experiment.dir)
     else:
         wandb_logger = None
         model_checkpoint = ModelCheckpoint()

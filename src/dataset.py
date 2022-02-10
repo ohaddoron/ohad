@@ -291,7 +291,8 @@ class BaseDataset:
                 '$project': {
                     'data': 0
                 }
-            }
+            },
+                
             ], allowDiskUse=True))
 
     def __len__(self):
