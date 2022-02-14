@@ -87,7 +87,7 @@ class TrainerConfig(BaseModel):
     Trainer configuration
     """
 
-    gpus: int = [1] if torch.cuda.is_available() else None
+    gpus: int = 1 if torch.cuda.is_available() else None
     auto_select_gpus = False
     # desired_batch_size = 32
     accumulate_grad_batches = max(1, 32 // DataConfig().batch_size)
@@ -255,9 +255,9 @@ class MultiOmicsRegressor(LightningModule):
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
         self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
 
-        # return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
-        #     'autoencoding_loss']['w'] * regression_loss
-        return triplet_loss
+        return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
+            'autoencoding_loss']['w'] * regression_loss
+        # return triplet_loss + regression_loss
 
     def losses_definitions(self):
         return dict(
