@@ -15,11 +15,16 @@ class MLP(nn.Module):
         last_layer_dim = input_features
 
         for layer_def in layer_defs:
-            layers.append(nn.Linear(last_layer_dim, layer_def.hidden_dim))
+            if layer_def.layer_type == 'Linear':
+                layers.append(getattr(nn, layer_def.layer_type)(last_layer_dim, layer_def.hidden_dim))
+            else:
+                layers.append(getattr(nn, layer_def.layer_type)(**layer_def.params))
             if layer_def.batch_norm:
                 layers.append(nn.BatchNorm1d(layer_def.hidden_dim))
-            layers.append(getattr(nn, layer_def.activation)())
-            last_layer_dim = layer_def.hidden_dim
+            if layer_def.activation is not None:
+                layers.append(getattr(nn, layer_def.activation)())
+            if layer_def.hidden_dim is not None:
+                last_layer_dim = layer_def.hidden_dim
         self.layers = layers
 
     def forward(self, x: torch.Tensor):

@@ -113,10 +113,13 @@ class MultiOmicsRegressorConfig(BaseModel):
     modalities_model_def = {modality: dict(
         input_features=get_num_attributes(general_config, modality=modality),
         encoder_layer_defs=[
-            # LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
-            LayerDef(hidden_dim=32, activation='Hardswish', batch_norm=True)],
+            LayerDef(hidden_dim=None, activation=None, batch_norm=False, layer_type='Dropout', params=dict(p=0.01)),
+            LayerDef(hidden_dim=32, activation='Hardswish', batch_norm=True),
+            LayerDef(hidden_dim=None, activation=None, batch_norm=False, layer_type='Dropout', params=dict(p=0.2))
+        ],
         decoder_layer_defs=[
             LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
+            LayerDef(hidden_dim=None, activation=None, batch_norm=False, layer_type='Dropout', params=dict(p=0.2)),
             LayerDef(hidden_dim=(get_num_attributes(general_config=general_config, modality=modality)),
                      activation='LeakyReLU', batch_norm=True)
         ],

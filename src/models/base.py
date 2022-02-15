@@ -14,3 +14,5 @@ class LayerDef(BaseModel):
     hidden_dim: int
     activation: str
     batch_norm: bool
+    layer_type: str = 'Linear'
+    params: dict = None
