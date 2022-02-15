@@ -113,8 +113,8 @@ class MultiOmicsRegressorConfig(BaseModel):
     modalities_model_def = {modality: dict(
         input_features=get_num_attributes(general_config, modality=modality),
         encoder_layer_defs=[
-            LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
-            LayerDef(hidden_dim=32, activation='Softmax', batch_norm=True)],
+            # LayerDef(hidden_dim=1024, activation='Hardswish', batch_norm=True),
+            LayerDef(hidden_dim=32, activation='Hardswish', batch_norm=True)],
         decoder_layer_defs=[
             LayerDef(hidden_dim=1024, activation='Mish', batch_norm=True),
             LayerDef(hidden_dim=(get_num_attributes(general_config=general_config, modality=modality)),
@@ -220,6 +220,8 @@ class MultiOmicsRegressor(LightningModule):
 
         self.losses = self.losses_definitions()
 
+        self.input_dropout = nn.Dropout(p=0.05)
+
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         return self.step(batch, purpose='train')
 
@@ -233,9 +235,9 @@ class MultiOmicsRegressor(LightningModule):
         return torch.optim.Adam(self.models.parameters(), lr=self.lr)
 
     def step(self, batch, purpose: str):
-        anchor_out = self.models[batch['anchor_modality']](batch['anchor'])
-        pos_out = self.models[batch['pos_modality']](batch['pos'])
-        neg_out = self.models[batch['neg_modality']](batch['neg'])
+        anchor_out = self.models[batch['anchor_modality']](self.input_dropout(batch['anchor']))
+        pos_out = self.models[batch['pos_modality']](self.input_dropout(batch['pos']))
+        neg_out = self.models[batch['neg_modality']](self.input_dropout(batch['neg']))
 
         triplet_loss = self.losses['triplet_loss']['fn'](
             anchor_out['encoder'],
