@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from torch import nn, Tensor
+import typing as tp
 
 
 class ZScoreLayer(nn.BatchNorm1d):
@@ -11,8 +12,8 @@ class ZScoreLayer(nn.BatchNorm1d):
 
 
 class LayerDef(BaseModel):
-    hidden_dim: int
-    activation: str
-    batch_norm: bool
+    hidden_dim: tp.Optional[int]
+    activation: tp.Optional[str]
+    batch_norm: tp.Optional[bool]
     layer_type: str = 'Linear'
     params: dict = None
