@@ -132,7 +132,7 @@ class MultiOmicsRegressorConfig(BaseModel):
 
     lr = 1e-3
     loss_config = dict(
-        triplet_loss=dict(margin=1.0, p=2.0, eps=1e-06, swap=True),
+        triplet_loss=dict(margin=5.0, p=2.0, eps=1e-06, swap=False),
         autoencoding_loss=dict()
     )
     loss_weight_dict = dict(triplet_loss=0.9, autoencoding_loss=0.2)
