@@ -87,7 +87,7 @@ class TrainerConfig(BaseModel):
     Trainer configuration
     """
 
-    gpus: int = 1 if torch.cuda.is_available() else None
+    gpus: int = [1] if torch.cuda.is_available() else None
     auto_select_gpus = False
     # desired_batch_size = 32
     accumulate_grad_batches = max(1, 32 // DataConfig().batch_size)
@@ -102,6 +102,7 @@ class TrainerConfig(BaseModel):
 
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
+    limit_train_batches = 1000
 
 
 class MultiOmicsRegressorConfig(BaseModel):
