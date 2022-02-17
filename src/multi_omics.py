@@ -265,12 +265,12 @@ class MultiOmicsRegressor(LightningModule):
 
         cosine_loss = cosine_embedding_loss(
             anchor_out['encoder'], pos_out['encoder'],
-            torch.tensor(1).type_as(
+            torch.ones(size=(anchor_out['encoder'].shape[0], 1)).type_as(
                 anchor_out['encoder']
             )
         ) + cosine_embedding_loss(
             anchor_out['encoder'], neg_out['encoder'],
-            torch.tensor(1).type_as(
+            -torch.ones(size=(anchor_out['encoder'].shape[0], 1)).type_as(
                 anchor_out['encoder']
             )
         )
