@@ -131,7 +131,7 @@ class MultiOmicsRegressorConfig(BaseModel):
 
     lr = 1e-3
     loss_config = dict(
-        triplet_loss=dict(margin=1.0, swap=True),
+        triplet_loss=dict(margin=1.0, p=2.0, eps=1e-06, swap=True),
         autoencoding_loss=dict()
     )
     loss_weight_dict = dict(triplet_loss=0.9, autoencoding_loss=0.2)
@@ -279,8 +279,7 @@ class MultiOmicsRegressor(LightningModule):
         return dict(
             triplet_loss=dict(
                 w=self.loss_weight_dict['triplet_loss'],
-                fn=TripletMarginWithDistanceLoss(distance_function=torch.nn.CosineSimilarity(),
-                                                 **self.loss_config['triplet_loss'])
+                fn=TripletMarginLoss(**self.loss_config['triplet_loss'])
             ),
             autoencoding_loss=dict(
                 w=self.loss_weight_dict['autoencoding_loss'],
