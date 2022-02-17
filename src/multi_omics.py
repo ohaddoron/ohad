@@ -102,8 +102,6 @@ class TrainerConfig(BaseModel):
 
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
-    limit_train_batches = 100
-    limit_val_batches = 0.3
 
 
 class MultiOmicsRegressorConfig(BaseModel):
@@ -248,18 +246,17 @@ class MultiOmicsRegressor(LightningModule):
             neg_out['encoder']
         )
 
-        self.log(name=f'{purpose}/triplet_loss', value=triplet_loss, on_step=False, on_epoch=True, sync_dist=True)
+        self.log(name=f'{purpose}/triplet_loss', value=triplet_loss)
 
         anchor_reg = self.losses['autoencoding_loss']['fn'](anchor_out['autoencoder'], batch['anchor'])
-        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg, on_step=False, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg)
         pos_reg = self.losses['autoencoding_loss']['fn'](pos_out['autoencoder'], batch['pos'])
-        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg, on_step=False, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg)
         neg_reg = self.losses['autoencoding_loss']['fn'](neg_out['autoencoder'], batch['neg'])
-        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg, on_step=False, on_epoch=True, sync_dist=True)
+        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg)
 
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
-        self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
-        cosine_embedding_loss = nn.CosineEmbeddingLoss(margin=0.5)
+        self.log(f'{purpose}/regression_loss', value=regression_loss)
 
         cosine_embedding_loss = nn.CosineEmbeddingLoss(margin=0.5)
 
