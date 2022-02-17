@@ -259,10 +259,26 @@ class MultiOmicsRegressor(LightningModule):
 
         regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
         self.log(f'{purpose}/regression_loss', value=regression_loss, on_step=False, on_epoch=True, sync_dist=True)
+        cosine_embedding_loss = nn.CosineEmbeddingLoss(margin=0.5)
 
-        return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
-            'autoencoding_loss']['w'] * regression_loss
+        cosine_embedding_loss = nn.CosineEmbeddingLoss(margin=0.5)
+
+        cosine_loss = cosine_embedding_loss(
+            anchor_out['encoder'], pos_out['encoder'],
+            torch.tensor(1).type_as(
+                anchor_out['encoder']
+            )
+        ) + cosine_embedding_loss(
+            anchor_out['encoder'], neg_out['encoder'],
+            torch.tensor(1).type_as(
+                anchor_out['encoder']
+            )
+        )
+        # self.log(f'{purpose}/cosine_embedding_loss', value=cosine_loss)
+        # return self.losses['triplet_loss']['w'] * triplet_loss + self.losses[
+        #     'autoencoding_loss']['w'] * regression_loss
         # return triplet_loss + regression_loss
+        return cosine_loss + regression_loss
 
     def losses_definitions(self):
         return dict(
