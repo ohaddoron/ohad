@@ -22,7 +22,7 @@ from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADER
 from src.models import LayerDef
 from src.models.mlp import MultiHeadAutoEncoderRegressor
 from torch import nn
-from torch.nn import TripletMarginLoss, MSELoss
+from torch.nn import TripletMarginLoss, MSELoss, TripletMarginWithDistanceLoss
 from torch.utils.data import DataLoader, RandomSampler, BatchSampler, SequentialSampler, SubsetRandomSampler
 
 from src.dataset import MultiOmicsDataset
@@ -132,7 +132,7 @@ class MultiOmicsRegressorConfig(BaseModel):
 
     lr = 1e-3
     loss_config = dict(
-        triplet_loss=dict(margin=5.0, p=2.0, eps=1e-06, swap=False),
+        triplet_loss=dict(margin=1.0, swap=True),
         autoencoding_loss=dict()
     )
     loss_weight_dict = dict(triplet_loss=0.9, autoencoding_loss=0.2)
@@ -268,7 +268,8 @@ class MultiOmicsRegressor(LightningModule):
         return dict(
             triplet_loss=dict(
                 w=self.loss_weight_dict['triplet_loss'],
-                fn=TripletMarginLoss(**self.loss_config['triplet_loss'])
+                fn=TripletMarginWithDistanceLoss(distance_function=torch.nn.CosineSimilarity(),
+                                                 **self.loss_config['triplet_loss'])
             ),
             autoencoding_loss=dict(
                 w=self.loss_weight_dict['autoencoding_loss'],
