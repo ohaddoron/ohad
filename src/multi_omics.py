@@ -272,7 +272,7 @@ class MultiOmicsRegressor(LightningModule):
         self.log(f'{purpose}/pos_embedding_loss', pos_embedding_loss)
         self.log(f'{purpose}/neg_embedding_loss', neg_embedding_loss)
 
-        return pos_embedding_loss + neg_embedding_loss + regression_loss
+        return 5 * pos_embedding_loss + neg_embedding_loss + regression_loss
 
     def losses_definitions(self):
         return dict(
