@@ -7,6 +7,8 @@ import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+
+import wandb
 from src.logger import logger
 import toml
 import torch
@@ -102,7 +104,7 @@ class TrainerConfig(BaseModel):
 
     default_root_dir = f'{tempfile.gettempdir()}/MultiOmics'
     stochastic_weight_avg = False
-    limit_train_batches = 1000
+    limit_train_batches = 100
 
 
 class MultiOmicsRegressorConfig(BaseModel):
@@ -188,6 +190,9 @@ class DataModule(LightningDataModule):
                                                drop_last=True),
                           collate_fn=None
                           )
+
+    def test_dataloader(self) -> EVAL_DATALOADERS:
+        return self.val_dataloader()
 
 
 class MultiOmicsRegressor(LightningModule):
@@ -328,7 +333,7 @@ def train(general_config_path: str = typer.Option(None,
         wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
                                                    data_config=data_config.dict(),
                                                    trainer_config=trainer_config.dict()))
-        model_checkpoint = ModelCheckpoint(dirpath=wandb_logger.experiment.dir)
+        model_checkpoint = ModelCheckpoint(filename='multi-omics-model', dirpath=wandb_logger.experiment.dir)
     else:
         wandb_logger = None
         model_checkpoint = ModelCheckpoint()
@@ -349,6 +354,22 @@ def train(general_config_path: str = typer.Option(None,
     trainer.fit(model,
                 datamodule=datamodule,
                 )
+
+
+@app.command()
+def validate(run_id: str = '1ssccedd'):
+    run = wandb.init(id=run_id)
+    weights_file = wandb.restore('epoch=331-step=33199.ckpt')
+    model = MultiOmicsRegressor.load_from_checkpoint(weights_file.name)
+    data_config: DataConfig = DataConfig(train_patients=tuple(model.hparams.train_patients),
+                                         val_patients=tuple(model.hparams.val_patients)
+                                         )
+    datamodule = DataModule(**data_config.dict())
+    trainer_config: TrainerConfig = TrainerConfig()
+
+    trainer = Trainer(**trainer_config.dict())
+
+    trainer.test(model=model, datamodule=datamodule)
 
 
 if __name__ == '__main__':
