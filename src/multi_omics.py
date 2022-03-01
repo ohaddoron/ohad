@@ -357,7 +357,7 @@ def train(general_config_path: str = typer.Option(None,
 
 
 @app.command()
-def validate(run_id: str = '1ssccedd'):
+def validate(run_id: str = '2k9d2eog'):
     run = wandb.init(id=run_id)
     weights_file = wandb.restore('epoch=331-step=33199.ckpt')
     model = MultiOmicsRegressor.load_from_checkpoint(weights_file.name)
