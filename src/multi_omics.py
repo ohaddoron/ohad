@@ -284,16 +284,16 @@ class MultiOmicsRegressor(LightningModule):
 
         bce_loss = torch.nn.BCEWithLogitsLoss()
 
-        regression_loss = bce_loss(input=anchor_out['regression'],
-                                   target=(batch[
-                                               'anchor_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
-                                       1)) + \
-                          bce_loss(input=pos_out['regression'],
-                                   target=(batch['pos_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
-                                       1)) + \
-                          bce_loss(input=neg_out['regression'],
-                                   target=(batch['neg_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
-                                       1))
+        regression_loss = bce_loss(input=torch.cat((anchor_out['regression'],
+                                                    pos_out['regression'],
+                                                    neg_out['regression'])
+                                                   ),
+                                   target=(torch.cat(
+                                       (batch['anchor_survival'],
+                                        batch['pos_survival'],
+                                        batch['neg_survival'])
+                                   ) > self.short_long_survival_cutoff).float().unsqueeze(1)
+                                   )
 
         self.log(f'{purpose}/classification_loss', regression_loss)
         precision, recall = precision_recall(preds=torch.cat((anchor_out['regression'],
