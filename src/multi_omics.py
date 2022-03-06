@@ -306,7 +306,7 @@ class MultiOmicsRegressor(LightningModule):
                                                   batch['neg_survival'] > self.short_long_survival_cutoff)).int()
                                              )
         self.log(f'{purpose}/precision', precision)
-        self.log(f'{purpose}/precision', recall)
+        self.log(f'{purpose}/recall', recall)
         self.log(f'{purpose}/classification_loss', regression_loss)
 
         return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + regression_loss
