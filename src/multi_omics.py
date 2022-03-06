@@ -285,11 +285,15 @@ class MultiOmicsRegressor(LightningModule):
         bce_loss = torch.nn.BCEWithLogitsLoss()
 
         regression_loss = bce_loss(input=anchor_out['regression'],
-                                   target=batch['anchor_survival'] > self.short_long_survival_cutoff) + \
+                                   target=(batch[
+                                               'anchor_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
+                                       1)) + \
                           bce_loss(input=pos_out['regression'],
-                                   target=batch['pos_survival'] > self.short_long_survival_cutoff) + \
+                                   target=(batch['pos_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
+                                       1)) + \
                           bce_loss(input=neg_out['regression'],
-                                   target=batch['neg_survival'] > self.short_long_survival_cutoff)
+                                   target=(batch['neg_survival'] > self.short_long_survival_cutoff).float().unsqueeze(
+                                       1))
 
         self.log(f'{purpose}/classification_loss', regression_loss)
         precision, recall = precision_recall(preds=torch.cat((anchor_out['regression'],
@@ -298,8 +302,8 @@ class MultiOmicsRegressor(LightningModule):
                                                              ),
                                              target=torch.cat(
                                                  (batch['anchor_survival'] > self.short_long_survival_cutoff,
-                                                  batch['pos_survival'] > self.short_long_survival_cutoff),
-                                                 batch['neg_survival'] > self.short_long_survival_cutoff)
+                                                  batch['pos_survival'] > self.short_long_survival_cutoff,
+                                                  batch['neg_survival'] > self.short_long_survival_cutoff)).int()
                                              )
         self.log(f'{purpose}/precision', precision)
         self.log(f'{purpose}/precision', recall)
@@ -370,8 +374,6 @@ def train(general_config_path: str = typer.Option(None,
                                 train_patients=data_config.train_patients,
                                 val_patients=data_config.val_patients,
                                 **multi_omics_regressor_config.dict(),
-                                general_config=general_config,
-                                data_config=data_config,
                                 trainer_config=trainer_config
                                 )
 

@@ -473,8 +473,6 @@ class MultiOmicsDataset(BaseDataset, Dataset):
 
     def get_all_patients_samples_in_collection(self, collection: str):
         db = init_database(self.config_name)
-        if hash(f'get_all_patients_samples_in_collection-{collection}') in cache:
-            return cache.get(hash(f'get_all_patients_samples_in_collection-{collection}'))
 
         res = {item['patient']: item['samples'] for item in (db[collection].aggregate([
             {'$match': {'patient': {'$in': self.patients}}},
