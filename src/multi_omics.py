@@ -126,7 +126,7 @@ class MultiOmicsRegressorConfig(BaseModel):
                      activation='LeakyReLU', batch_norm=True)
         ],
         regressor_layer_defs=[
-            LayerDef(hidden_dim=64, activation='Mish', batch_norm=True),
+            LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
             LayerDef(hidden_dim=1, activation=None, batch_norm=True)
         ]
     )
