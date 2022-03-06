@@ -7,7 +7,7 @@ import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-
+from torchmetrics.functional import precision_recall
 import wandb
 from src.logger import logger
 import toml
@@ -78,6 +78,7 @@ class DataConfig(BaseModel):
     train_patients = random.sample(patients, k=int(len(patients) * 0.9))
     val_patients = list(set(patients) - set(train_patients))
     collections = general_config.modalities
+    short_long_survival_cutoff = 921.  # This value is set based on the median survival times
 
     def __hash__(self):
         return hash(repr(self))
@@ -109,6 +110,7 @@ class TrainerConfig(BaseModel):
 
 class MultiOmicsRegressorConfig(BaseModel):
     general_config = GeneralConfig()
+    data_config = DataConfig()
     modalities = general_config.modalities
 
     modalities_model_def = {modality: dict(
@@ -125,7 +127,7 @@ class MultiOmicsRegressorConfig(BaseModel):
         ],
         regressor_layer_defs=[
             LayerDef(hidden_dim=64, activation='Mish', batch_norm=True),
-            LayerDef(hidden_dim=1, activation='ReLU', batch_norm=True)
+            LayerDef(hidden_dim=1, activation=None, batch_norm=True)
         ]
     )
         for modality, general_config in zip(modalities, [general_config] * len(modalities))}
@@ -136,6 +138,8 @@ class MultiOmicsRegressorConfig(BaseModel):
         autoencoding_loss=dict()
     )
     loss_weight_dict = dict(triplet_loss=0.9, autoencoding_loss=0.2)
+
+    short_long_survival_cutoff = data_config.short_long_survival_cutoff
 
     def __hash__(self):
         return hash(repr(self))
@@ -166,7 +170,6 @@ class DataModule(LightningDataModule):
         ds = MultiOmicsDataset(patients=self._train_patients,
                                collections=self._collections,
                                get_from_redis=True
-
                                )
 
         return DataLoader(dataset=ds,
@@ -204,10 +207,12 @@ class MultiOmicsRegressor(LightningModule):
                  lr: float,
                  loss_config: dict,
                  loss_weight_dict: dict,
+                 short_long_survival_cutoff: float,
                  *args: Any,
                  **kwargs: Any):
         super().__init__()
 
+        self.short_long_survival_cutoff = short_long_survival_cutoff
         self.modalities = modalities
 
         self.models = torch.nn.ModuleDict(
@@ -253,15 +258,15 @@ class MultiOmicsRegressor(LightningModule):
 
         self.log(name=f'{purpose}/triplet_loss', value=triplet_loss)
 
-        anchor_reg = self.losses['autoencoding_loss']['fn'](anchor_out['autoencoder'], batch['anchor'])
-        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_reg)
-        pos_reg = self.losses['autoencoding_loss']['fn'](pos_out['autoencoder'], batch['pos'])
-        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_reg)
-        neg_reg = self.losses['autoencoding_loss']['fn'](neg_out['autoencoder'], batch['neg'])
-        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_reg)
+        anchor_rec = self.losses['autoencoding_loss']['fn'](anchor_out['autoencoder'], batch['anchor'])
+        self.log(f'{purpose}/{batch["anchor_modality"]}_reg', anchor_rec)
+        pos_rec = self.losses['autoencoding_loss']['fn'](pos_out['autoencoder'], batch['pos'])
+        self.log(f'{purpose}/{batch["pos_modality"]}_reg', pos_rec)
+        neg_rec = self.losses['autoencoding_loss']['fn'](neg_out['autoencoder'], batch['neg'])
+        self.log(f'{purpose}/{batch["neg_modality"]}_reg', neg_rec)
 
-        regression_loss = sum((anchor_reg, pos_reg, neg_reg)) / 3
-        self.log(f'{purpose}/regression_loss', value=regression_loss)
+        reconstruction_loss = sum((anchor_rec, pos_rec, neg_rec)) / 3
+        self.log(f'{purpose}/reconstruction_loss', value=reconstruction_loss)
 
         cosine_embedding_loss = nn.CosineEmbeddingLoss(margin=0.5)
 
@@ -277,7 +282,30 @@ class MultiOmicsRegressor(LightningModule):
         self.log(f'{purpose}/pos_embedding_loss', pos_embedding_loss)
         self.log(f'{purpose}/neg_embedding_loss', neg_embedding_loss)
 
-        return 5 * pos_embedding_loss + neg_embedding_loss + regression_loss
+        bce_loss = torch.nn.BCEWithLogitsLoss()
+
+        regression_loss = bce_loss(input=anchor_out['regression'],
+                                   target=batch['anchor_survival'] > self.short_long_survival_cutoff) + \
+                          bce_loss(input=pos_out['regression'],
+                                   target=batch['pos_survival'] > self.short_long_survival_cutoff) + \
+                          bce_loss(input=neg_out['regression'],
+                                   target=batch['neg_survival'] > self.short_long_survival_cutoff)
+
+        self.log(f'{purpose}/classification_loss', regression_loss)
+        precision, recall = precision_recall(preds=torch.cat((anchor_out['regression'],
+                                                              pos_out['regression'],
+                                                              neg_out['regression'])
+                                                             ),
+                                             target=torch.cat(
+                                                 (batch['anchor_survival'] > self.short_long_survival_cutoff,
+                                                  batch['pos_survival'] > self.short_long_survival_cutoff),
+                                                 batch['neg_survival'] > self.short_long_survival_cutoff)
+                                             )
+        self.log(f'{purpose}/precision', precision)
+        self.log(f'{purpose}/precision', recall)
+        self.log(f'{purpose}/classification_loss', regression_loss)
+
+        return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + regression_loss
 
     def losses_definitions(self):
         return dict(
@@ -341,7 +369,10 @@ def train(general_config_path: str = typer.Option(None,
     model = MultiOmicsRegressor(modalities_model_config=multi_omics_regressor_config.modalities_model_def,
                                 train_patients=data_config.train_patients,
                                 val_patients=data_config.val_patients,
-                                **multi_omics_regressor_config.dict()
+                                **multi_omics_regressor_config.dict(),
+                                general_config=general_config,
+                                data_config=data_config,
+                                trainer_config=trainer_config
                                 )
 
     trainer = Trainer(**trainer_config.dict(),

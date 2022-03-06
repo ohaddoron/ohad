@@ -292,7 +292,7 @@ class BaseDataset:
                     'data': 0
                 }
             },
-                
+
             ], allowDiskUse=True))
 
     def __len__(self):
@@ -453,7 +453,9 @@ class AttentionMixin(AttributeFillerDataset):
 
 
 class MultiOmicsDataset(BaseDataset, Dataset):
-    def __init__(self, patients: tp.List[str], collections: tp.List[str], config_name: str = 'brca-reader',
+    def __init__(self, patients: tp.List[str],
+                 collections: tp.List[str],
+                 config_name: str = 'brca-reader',
                  get_from_redis: bool = False):
         self._collections = collections
 
@@ -475,6 +477,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             return cache.get(hash(f'get_all_patients_samples_in_collection-{collection}'))
 
         res = {item['patient']: item['samples'] for item in (db[collection].aggregate([
+            {'$match': {'patient': {'$in': self.patients}}},
             {
                 '$group': {
                     '_id': '$patient',
@@ -583,7 +586,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         )
         return pos_sample
 
-    def get_neg_sample(self, anchor_patient, collection: str) -> tp.Tuple[str, str]:
+    def get_neg_sample(self, patient, collection: str) -> tp.Tuple[str, str]:
         """
         Returns the name of the sample to be used as negative from the negative collection. The patient to be used is
         selected randomally according to the available patients in the collection but excluding the anchor/positive
@@ -594,14 +597,25 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         :return:
         """
 
+        neg_sample = random.choice(
+            self.patient_names_col_samples[collection][patient]
+        )
+        return neg_sample
+
+    def get_survival_time(self, patient):
+        db = init_database(config_name=self.config_name)
+        patient_meta_survival = db['Survival'].find_one(dict(patient=patient, name='OS.time'))
+        if not patient_meta_survival or math.isnan(patient_meta_survival['value']):
+            return np.inf
+        return patient_meta_survival['value']
+
+    def get_neg_patient(self, anchor_patient: str, collection: str):
+
         available_patients: tp.List = self.modality_patients[collection].copy()
         if anchor_patient in available_patients:
             available_patients.remove(anchor_patient)
         neg_patient = random.choice(self.modality_patients[collection])
-        neg_sample = random.choice(
-            self.patient_names_col_samples[collection][neg_patient]
-        )
-        return neg_sample
+        return neg_patient
 
     def get_sample(self,
                    anchor_collection: str,
@@ -610,10 +624,11 @@ class MultiOmicsDataset(BaseDataset, Dataset):
                    ) -> dict:
 
         base_patient = self.get_base_patient(anchor_collection=anchor_collection, pos_collection=pos_collection)
+        neg_patient = self.get_neg_patient(anchor_patient=base_patient, collection=neg_collection)
 
         anchor_sample = self.get_anchor_sample(patient=base_patient, collection=anchor_collection)
         pos_sample = self.get_pos_sample(patient=base_patient, collection=pos_collection)
-        neg_sample = self.get_neg_sample(anchor_patient=base_patient, collection=neg_collection)
+        neg_sample = self.get_neg_sample(patient=neg_patient, collection=neg_collection)
 
         anchor_attributes = self.get_attributes(sample=anchor_sample, collection_name=anchor_collection)
 
@@ -624,7 +639,10 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         return dict(
             anchor=anchor_attributes,
             pos=pos_attributes,
-            neg=neg_attributes
+            neg=neg_attributes,
+            anchor_survival=self.get_survival_time(base_patient),
+            pos_survival=self.get_survival_time(base_patient),
+            neg_survival=self.get_survival_time(neg_patient)
         )
 
     def get_attributes(self, sample, collection_name: str):
@@ -672,10 +690,12 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             anchor=torch.from_numpy(np.stack([item['anchor'] for item in items])),
             pos=torch.from_numpy(np.stack([item['pos'] for item in items])),
             neg=torch.from_numpy(np.stack([item['neg'] for item in items])),
+            anchor_survival=torch.from_numpy(np.stack([item['anchor_survival'] for item in items])),
+            pos_survival=torch.from_numpy(np.stack([item['pos_survival'] for item in items])),
+            neg_survival=torch.from_numpy(np.stack([item['neg_survival'] for item in items])),
             anchor_modality=anchor_collection,
             pos_modality=pos_collection,
             neg_modality=neg_collection
-
         )
 
     def __len__(self):
