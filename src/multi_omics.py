@@ -127,7 +127,7 @@ class MultiOmicsRegressorConfig(BaseModel):
         ],
         regressor_layer_defs=[
             LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
-            LayerDef(hidden_dim=1, activation=None, batch_norm=True)
+            LayerDef(hidden_dim=1, activation='Sigmoid', batch_norm=True)
         ]
     )
         for modality, general_config in zip(modalities, [general_config] * len(modalities))}
