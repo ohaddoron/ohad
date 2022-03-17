@@ -126,7 +126,7 @@ class MultiOmicsRegressorConfig(BaseModel):
                      activation='LeakyReLU', batch_norm=True)
         ],
         regressor_layer_defs=[
-            LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
+            # LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
             LayerDef(hidden_dim=1, activation='Sigmoid', batch_norm=True)
         ]
     )
@@ -309,7 +309,7 @@ class MultiOmicsRegressor(LightningModule):
         self.log(f'{purpose}/recall', recall)
         self.log(f'{purpose}/classification_loss', regression_loss)
 
-        return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + regression_loss
+        return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + 3 * regression_loss
 
     def losses_definitions(self):
         return dict(
