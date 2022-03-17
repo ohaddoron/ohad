@@ -127,6 +127,7 @@ class MultiOmicsRegressorConfig(BaseModel):
         ],
         regressor_layer_defs=[
             # LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
+            LayerDef(hidden_dim=None, activation=None, batch_norm=False, layer_type='Dropout', params=dict(p=0.2)),
             LayerDef(hidden_dim=1, activation='Sigmoid', batch_norm=True)
         ]
     )
