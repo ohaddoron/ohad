@@ -7,6 +7,9 @@ import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+
+from torch.nn.functional import mse_loss
+from torchmetrics import SymmetricMeanAbsolutePercentageError
 from torchmetrics.functional import precision_recall
 import wandb
 from src.logger import logger
@@ -126,9 +129,9 @@ class MultiOmicsRegressorConfig(BaseModel):
                      activation='LeakyReLU', batch_norm=True)
         ],
         regressor_layer_defs=[
-            # LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
+            LayerDef(hidden_dim=8, activation='Hardswish', batch_norm=True),
             LayerDef(hidden_dim=None, activation=None, batch_norm=False, layer_type='Dropout', params=dict(p=0.2)),
-            LayerDef(hidden_dim=1, activation='Sigmoid', batch_norm=True)
+            LayerDef(hidden_dim=1, activation='ReLU', batch_norm=True)
         ]
     )
         for modality, general_config in zip(modalities, [general_config] * len(modalities))}
@@ -234,6 +237,8 @@ class MultiOmicsRegressor(LightningModule):
 
         self.input_dropout = nn.Dropout(p=0.05)
 
+        self.smape = SymmetricMeanAbsolutePercentageError()
+
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         return self.step(batch, purpose='train')
 
@@ -283,33 +288,39 @@ class MultiOmicsRegressor(LightningModule):
         self.log(f'{purpose}/pos_embedding_loss', pos_embedding_loss)
         self.log(f'{purpose}/neg_embedding_loss', neg_embedding_loss)
 
-        bce_loss = torch.nn.BCEWithLogitsLoss()
+        regression_loss = mse_loss(
+            input=torch.cat(
+                (
+                    anchor_out['regression'],
+                    pos_out['regression'],
+                    neg_out['regression'])
+            ),
+            target=(
+                torch.cat(
+                    (
+                        batch['anchor_survival'],
+                        batch['pos_survival'],
+                        batch['neg_survival'])
+                )
+            )
+        )
 
-        regression_loss = bce_loss(input=torch.cat((anchor_out['regression'],
-                                                    pos_out['regression'],
-                                                    neg_out['regression'])
-                                                   ),
-                                   target=(torch.cat(
-                                       (batch['anchor_survival'],
-                                        batch['pos_survival'],
-                                        batch['neg_survival'])
-                                   ) > self.short_long_survival_cutoff).float().unsqueeze(1)
-                                   )
-
-        self.log(f'{purpose}/classification_loss', regression_loss)
-        precision, recall = precision_recall(preds=torch.cat((anchor_out['regression'],
-                                                              pos_out['regression'],
-                                                              neg_out['regression'])
-                                                             ),
-                                             target=torch.cat(
-                                                 (batch['anchor_survival'] > self.short_long_survival_cutoff,
-                                                  batch['pos_survival'] > self.short_long_survival_cutoff,
-                                                  batch['neg_survival'] > self.short_long_survival_cutoff)).int()
-                                             )
-        self.log(f'{purpose}/precision', precision)
-        self.log(f'{purpose}/recall', recall)
-        self.log(f'{purpose}/classification_loss', regression_loss)
-
+        self.log(f'{purpose}/survival_regression_loss', regression_loss)
+        smape = self.smape(
+            preds=torch.cat(
+                (
+                    anchor_out['regression'],
+                    pos_out['regression'],
+                    neg_out['regression'])
+            ),
+            target=(
+                torch.cat(
+                    (
+                        batch['anchor_survival'],
+                        batch['pos_survival'],
+                        batch['neg_survival'])
+                )
+            ))
         return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + 3 * regression_loss
 
     def losses_definitions(self):
