@@ -604,7 +604,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         db = init_database(config_name=self.config_name)
         patient_meta_survival = db['Survival'].find_one(dict(patient=patient, name='OS.time'))
         if not patient_meta_survival or math.isnan(patient_meta_survival['value']):
-            return 10000
+            return float(10000)
         return patient_meta_survival['value']
 
     def get_neg_patient(self, anchor_patient: str, collection: str):
@@ -688,9 +688,9 @@ class MultiOmicsDataset(BaseDataset, Dataset):
             anchor=torch.from_numpy(np.stack([item['anchor'] for item in items])),
             pos=torch.from_numpy(np.stack([item['pos'] for item in items])),
             neg=torch.from_numpy(np.stack([item['neg'] for item in items])),
-            anchor_survival=torch.from_numpy(np.stack([item['anchor_survival'] for item in items])),
-            pos_survival=torch.from_numpy(np.stack([item['pos_survival'] for item in items])),
-            neg_survival=torch.from_numpy(np.stack([item['neg_survival'] for item in items])),
+            anchor_survival=torch.from_numpy(np.stack([item['anchor_survival'] for item in items])).float(),
+            pos_survival=torch.from_numpy(np.stack([item['pos_survival'] for item in items])).float(),
+            neg_survival=torch.from_numpy(np.stack([item['neg_survival'] for item in items])).float(),
             anchor_modality=anchor_collection,
             pos_modality=pos_collection,
             neg_modality=neg_collection
