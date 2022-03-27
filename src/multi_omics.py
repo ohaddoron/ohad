@@ -302,7 +302,7 @@ class MultiOmicsRegressor(LightningModule):
                         batch['pos_survival'],
                         batch['neg_survival'])
                 )
-            )
+            ).unsqueeze(1)
         )
 
         self.log(f'{purpose}/survival_regression_loss', regression_loss)
@@ -320,7 +320,10 @@ class MultiOmicsRegressor(LightningModule):
                         batch['pos_survival'],
                         batch['neg_survival'])
                 )
-            ))
+            ).unsqueeze(1)
+        )
+
+        self.log(f'{purpose}/smape_survival', smape)
         return 5 * pos_embedding_loss + neg_embedding_loss + reconstruction_loss + 3 * regression_loss
 
     def losses_definitions(self):

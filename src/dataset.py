@@ -604,7 +604,7 @@ class MultiOmicsDataset(BaseDataset, Dataset):
         db = init_database(config_name=self.config_name)
         patient_meta_survival = db['Survival'].find_one(dict(patient=patient, name='OS.time'))
         if not patient_meta_survival or math.isnan(patient_meta_survival['value']):
-            return np.inf
+            return 10000
         return patient_meta_survival['value']
 
     def get_neg_patient(self, anchor_patient: str, collection: str):
