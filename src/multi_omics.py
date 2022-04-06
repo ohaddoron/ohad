@@ -374,13 +374,14 @@ def train(general_config_path: str = typer.Option(None,
 
     if not general_config.DEBUG:
         wandb_logger = WandbLogger(name=f"MultiOmics",
-                                   log_model=True,
-                                   save_dir=trainer_config.default_root_dir)
+                                   log_model='all',
+                                   save_dir=trainer_config.default_root_dir
+                                   )
 
         wandb_logger.experiment.config.update(dict(general_config=general_config.dict(),
                                                    data_config=data_config.dict(),
                                                    trainer_config=trainer_config.dict()))
-        model_checkpoint = ModelCheckpoint(filename='multi-omics-model', dirpath=wandb_logger.experiment.dir)
+        model_checkpoint = ModelCheckpoint(monitor='val/smape_survival')
     else:
         wandb_logger = None
         model_checkpoint = ModelCheckpoint()
