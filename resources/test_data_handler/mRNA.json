@@ -1,0 +1,61 @@
+[{
+  "_id": {
+    "$oid": "627a9c3827a24aa4f2ab6c13"
+  },
+  "name": "TNMD",
+  "value": 0.219,
+  "patient": "TCGA-06-2557",
+  "metadata": {
+    "gene_id": "ENSG00000000005.6",
+    "gene_type": "protein_coding",
+    "stranded_first": "8",
+    "stranded_second": "9",
+    "tpm_unstranded": "0.7806",
+    "fpkm_unstranded": "0.2331"
+  }
+},{
+  "_id": {
+    "$oid": "627a9c3827a24aa4f2ab6c12"
+  },
+  "name": "TSPAN6",
+  "value": 14.05,
+  "patient": "TCGA-06-2557",
+  "metadata": {
+    "gene_id": "ENSG00000000003.15",
+    "gene_type": "protein_coding",
+    "stranded_first": "1681",
+    "stranded_second": "1671",
+    "tpm_unstranded": "50.0850",
+    "fpkm_unstranded": "14.9551"
+  }
+},{
+  "_id": {
+    "$oid": "627a85f427a24aa4f2be5de7"
+  },
+  "name": "TNMD",
+  "value": 0.1109,
+  "patient": "TCGA-06-2559",
+  "metadata": {
+    "gene_id": "ENSG00000000005.6",
+    "gene_type": "protein_coding",
+    "stranded_first": "4",
+    "stranded_second": "3",
+    "tpm_unstranded": "0.4599",
+    "fpkm_unstranded": "0.1187"
+  }
+},{
+  "_id": {
+    "$oid": "627a85f427a24aa4f2be5de6"
+  },
+  "name": "TSPAN6",
+  "value": 16.7648,
+  "patient": "TCGA-06-2559",
+  "metadata": {
+    "gene_id": "ENSG00000000003.15",
+    "gene_type": "protein_coding",
+    "stranded_first": "1684",
+    "stranded_second": "1569",
+    "tpm_unstranded": "69.5439",
+    "fpkm_unstranded": "17.9463"
+  }
+}]
