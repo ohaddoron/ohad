@@ -1,11 +1,10 @@
 from ohad.src.data_fetching import get_patients_split
-import pandas as pd
 
 early_pos, late_pos = get_patients_split(mutation='BRCA1', mutation_status=True)
 early_neg, late_neg = get_patients_split(mutation='BRCA1', mutation_status=False)
 
 import asyncio
-from src.data_fetching import get_patients_data_all_features
+from scripts.data_handler import get_patients_data_all_features
 
 # %%
 
