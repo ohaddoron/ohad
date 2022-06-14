@@ -1,9 +1,11 @@
+import inspect
 import math
 import sys
-from functools import lru_cache
+from functools import lru_cache, wraps
 
 import pandas as pd
 import pymongo.database
+import redis
 import toml
 import typer
 from pandas.errors import ParserError
@@ -183,6 +185,40 @@ def parse_file_to_database(file_name: str,
                 aggregator = []
     if aggregator:
         col.insert_many(aggregator, bypass_document_validation=True)
+
+
+class _RedisWrapper:
+    def __init__(self, func, cache_keys: tp.List[str] = None):
+        self.func = func
+        self.cache_keys = cache_keys or inspect.getfullargspec(func)
+
+    def __call__(self, *args, **kwargs):
+        r = redis.Redis(host=os.getenv('REDIS_HOST') or 'localhost', port=os.getenv('REDIS_PORT') or 6379)
+        assert set(kwargs.keys()) == set(self.cache_keys)
+        key = self.key_generator({key: kwargs[key] for key in self.cache_keys})
+        if key in r.keys():
+            return self._fetch_key(key)
+        else:
+            out = self.func(*args, **kwargs)
+            r[key] = out
+            return out
+
+    def _fetch_key(self, key: str):
+        return self.redis.get(key)
+
+    def key_generator(self, *args):
+        return '-'.join([f'{key}={hash(value)}' for key, value in args[0].items()])
+
+
+def RedisWrapper(func=None, cache_keys: tp.List[str] = None):
+    if func:
+        return _RedisWrapper(func=func)
+    else:
+        @wraps(func)
+        def wrapper(func):
+            return _RedisWrapper(func=func, cache_keys=cache_keys)
+
+        return wrapper
 
 
 if __name__ == '__main__':

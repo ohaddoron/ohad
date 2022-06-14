@@ -13,3 +13,6 @@ src/lightning_logs
 src/wandb
 src/ohad-src_default
 /resources/gene_expression_attributes.json
+
+# Ignore dynaconf secret files
+.secrets.*

@@ -11,13 +11,18 @@ from pathlib import Path
 
 import diskcache
 import numpy as np
+import pandas as pd
+import pymongo
 import torch
 from numpy.core._simd import targets
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
 from common.database import init_database
 from src.logger import logger
 from src.cache import cache
+from src.utils import RedisWrapper
+from rediscache import RedisCache
 
 cache: diskcache.Cache
 
@@ -713,3 +718,182 @@ class AttributeSignDataset(AttributeFillerDataset):
         sample['target_attributes'] = targets
         sample['targets'] = targets_
         return sample
+
+
+class AttributesDataset(Dataset):
+    def __init__(self,
+                 mongodb_connection_string: str,
+                 db_name: str,
+                 modality: str,
+                 patients=None,
+                 features=None,
+                 drop_rate: float = 0.2,
+                 standardization_values=None):
+        self._drop_rate = drop_rate
+        if patients is None:
+            patients = []
+        if features is None:
+            features = []
+        client = self._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+
+        self._col = client[db_name][modality]
+
+        self._feature_names = list(
+            set(self._col.distinct('name')).intersection(set(features))) if features else self._col.distinct('name')
+        self._patients = list(
+            set(self._col.distinct('patient')).intersection(set(patients))) if patients else self._col.distinct(
+            'patient')
+
+        if standardization_values is None:
+            logger.debug(f'Fetching standardization for {modality}')
+            self.standardization_values = self.get_min_max_values(mongodb_connection_string=mongodb_connection_string,
+                                                                  db_name=db_name,
+                                                                  modality=modality,
+                                                                  patients=self._patients)
+        else:
+            self.standardization_values = standardization_values
+
+    @staticmethod
+    def _connect_to_database(mongodb_connection_string):
+        client = pymongo.MongoClient(mongodb_connection_string)
+        logger.debug(client.server_info())
+        return client
+
+    def __len__(self):
+        return len(self._patients)
+
+    def _get_data(self, patient, features):
+        REDISCACHE = RedisCache()
+
+        @REDISCACHE.cache(expire=int(1e9), refresh=1, default=None, wait=True)
+        def __get_data(patient, features):
+            agg_result = list(self._col.aggregate([
+                {
+                    '$match': {
+                        'patient': patient,
+                        'name': {
+                            '$in':
+                                features
+                        }
+                    }
+                }, {
+                    '$project': {
+                        'metadata': 0,
+                        '_id': 0
+                    }
+                }
+            ]
+            )
+            )
+            return json.dumps({item['name']: item['value'] for item in agg_result})
+
+        return json.loads(__get_data(patient=patient, features=features))
+
+    def standardize(self, values_dict: dict) -> dict:
+        for key, value in values_dict.items():
+            values_dict[key] = (value - self.standardization_values[key]['min_value']) / (
+                    self.standardization_values[key]['max_value'] - self.standardization_values[key][
+                'min_value'] + 1e-6)
+
+        return values_dict
+
+    def __getitem__(self, item: int):
+        patient = self._patients[item]
+
+        values_dict = self._get_data(patient=patient, features=tuple(sorted(self._feature_names)))
+
+        values_dict = self.standardize(values_dict=values_dict)
+
+        vals = np.array(
+            [values_dict[feature_name] if feature_name in values_dict else 0. for feature_name in
+             self._feature_names]).astype(np.float32)
+
+        dirty = vals.copy()
+
+        mask = (np.random.rand(*vals.shape) < self._drop_rate).astype(np.bool)
+        r = np.random.rand(*vals.shape) * np.max(vals)
+        dirty[mask] = r[mask]
+
+        vals = np.clip(vals, 0, 1)
+
+        assert 0 <= np.max(vals) <= 1
+
+        return dict(inputs=dirty, outputs=vals, patient=patient)
+
+    @classmethod
+    def get_train_val_split(cls,
+                            mongodb_connection_string: str,
+                            db_name: str,
+                            metadata_collection_name: str = 'metadata') -> dict:
+        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        col = client[db_name][metadata_collection_name]
+
+        patients_meta = pd.DataFrame(col.find({'split': 'train'}))
+
+        X_train, X_test, y_train, y_test = train_test_split(patients_meta,
+                                                            patients_meta['patient'],
+                                                            stratify=patients_meta['project_id']
+                                                            )
+        return dict(train=list(y_train), val=list(y_test))
+
+    @classmethod
+    def get_test_patients(cls,
+                          mongodb_connection_string: str,
+                          db_name: str,
+                          metadata_collection_name: str = 'metadata'):
+        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        col = client[db_name][metadata_collection_name]
+        return col.find({'split': 'test'}).distinct('patient')
+
+    @classmethod
+    def get_min_max_values(cls,
+                           mongodb_connection_string: str,
+                           db_name: str,
+                           modality,
+                           patients=None) -> dict:
+        if patients is None:
+            patients = []
+        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        col = client[db_name][modality]
+
+        patients = list(
+            set(col.distinct('patient')).intersection(set(patients))) if patients else col.distinct(
+            'patient')
+
+        agg_result = list(col.aggregate([
+            {
+                '$match': {
+                    'patient': {
+                        '$in': patients
+                    }
+                }
+            }, {
+                '$group': {
+                    '_id': '$name',
+                    'max_value': {
+                        '$max': '$value'
+                    },
+                    'min_value': {
+                        '$min': '$value'
+                    }
+                }
+            }
+        ]
+        )
+        )
+
+        return {item['_id']: {'min_value': item['min_value'], 'max_value': item['max_value']} for item in agg_result}
+
+    @classmethod
+    def get_num_attributes(cls,
+                           mongodb_connection_string: str,
+                           db_name: str,
+                           modality
+                           ) -> int:
+
+        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        col = client[db_name][modality]
+        return len(col.distinct('name'))
+
+    def __repr__(self):
+        return 'AttributesDataset'

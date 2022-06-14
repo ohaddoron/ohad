@@ -1,5 +1,14 @@
+from pathlib import Path
+from unittest.mock import patch
+
+import mongomock
+import numpy as np
+import pymongo
 import pytest
+import redis
 import torch
+from bson import json_util
+from fakeredis import FakeRedis, FakeStrictRedis
 from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from src.dataset import AttributeFillerDataset, MultiOmicsDataset, AttentionMixin
@@ -97,3 +106,54 @@ class TestAttentionMixin:
 
         item = next(iter(dl))
         assert item['attributes'].shape == torch.Size((2, 2, 19672))
+
+
+@patch.object(redis, 'StrictRedis', side_effect=FakeStrictRedis)
+class TestAttributeDataset:
+    @mongomock.patch(servers='localhost')
+    def test_get_train_val_split(self, *args):
+        from src.dataset import AttributesDataset
+        with Path(__file__).parent.joinpath('../resources/patients_metadata.json').open() as f:
+            metadata = json_util.loads(f.read())
+        with pymongo.MongoClient() as client:
+            client['TCGA']['metadata'].insert_many(metadata)
+
+        out = AttributesDataset.get_train_val_split(mongodb_connection_string='mongodb://localhost:27017',
+                                                    db_name='TCGA',
+                                                    metadata_collection_name='metadata')
+        train_patients, val_patients = out.values()
+
+        assert not set(train_patients).intersection(val_patients)
+
+    @mongomock.patch(servers='localhost')
+    def test_getitem(self, *args):
+        from src.dataset import AttributesDataset
+        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
+            metadata = json_util.loads(f.read())
+        with pymongo.MongoClient() as client:
+            client['TCGA']['miRNA'].insert_many(metadata)
+
+        ds = AttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
+                               db_name='TCGA',
+                               modality='miRNA',
+                               patients=None,
+                               drop_rate=0.2)
+        item = ds[0]
+        assert isinstance(item, dict)
+        assert np.mean((item['inputs'] - item['outputs']) ** 2) > 0
+        assert 0. <= item['inputs'].max() <= 1.
+        assert 0. <= item['outputs'].max() <= 1.
+
+    @mongomock.patch(servers='localhost')
+    def test_min_max_values(self, *args):
+        from src.dataset import AttributesDataset
+        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
+            metadata = json_util.loads(f.read())
+        with pymongo.MongoClient() as client:
+            client['TCGA']['miRNA'].insert_many(metadata)
+        value_per_feature = AttributesDataset.get_min_max_values(
+            mongodb_connection_string='mongodb://localhost:27017',
+            db_name='TCGA',
+            modality='miRNA'
+        )
+        assert isinstance(value_per_feature, dict)
