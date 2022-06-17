@@ -6,20 +6,22 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, List
 import typing as tp
-
+import json
 from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
 import toml
 import typer
 from pydantic import BaseModel
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS
+from torch import nn
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torch
 
 from src.models import LayerDef
-from src.models.mlp import MLP
+from src.models.mlp import MLP, MultiHeadAutoEncoderRegressor
 
-from src.dataset import AttributesDataset
+from src.dataset import AttributesDataset, MultiOmicsAttributesDataset
 
 from typer import Typer
 import warnings
@@ -36,13 +38,17 @@ class GeneralConfig(BaseModel):
     modality: str
     num_attributes: int = None
 
-    def __init__(self, modality, *args, **kwargs):
-        super().__init__(modality=modality, *args, **kwargs)
-        self.num_attributes = AttributesDataset.get_num_attributes(
-            mongodb_connection_string=self.mongodb_connection_string,
-            modality=modality,
-            db_name=self.DATABASE_CONFIG_NAME
-        )
+    def __init__(self, modality, features=None, *args, **kwargs):
+        super().__init__(modality=modality, features=features, *args, **kwargs)
+
+        if features is not None:
+            self.num_attributes = len(features)
+        else:
+            self.num_attributes = AttributesDataset.get_num_attributes(
+                mongodb_connection_string=self.mongodb_connection_string,
+                modality=modality,
+                db_name=self.DATABASE_CONFIG_NAME
+            )
 
     def __hash__(self):
         return hash(repr(self))
@@ -59,6 +65,7 @@ class AttributesFillerDataConfig(BaseModel):
     num_attributes: int
     mongodb_connection_string: str
     db_name: str
+    feature_set: tp.List[str]
 
     def __init__(self, debug: bool, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -88,8 +95,8 @@ class NetworkConfig(BaseModel):
 
 class AttributesFillerConfig(BaseModel):
     network_config: NetworkConfig = None
-    loss_term: str = 'L1Loss'
-    lr: float = 1e-4
+    loss_term: str = 'SmoothL1Loss'
+    lr: float = 1e-3
 
     def __init__(self, input_features, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -100,7 +107,7 @@ class TrainerConfig(BaseModel):
     """
     Trainer configuration
     """
-    reload_dataloaders_every_epoch = False
+    reload_dataloaders_every_n_epochs = False
 
     enable_checkpointing = True
 
@@ -137,8 +144,6 @@ class AttributesFillerDataModule(pl.LightningDataModule):
         self.drop_rate = drop_rate
         self.batch_size = batch_size
         self.num_workers = num_workers
-
-    def setup(self, stage: Optional[str] = None) -> None:
         self.train_patients, self.val_patients = AttributesDataset.get_train_val_split(
             mongodb_connection_string=self.mongodb_connection_string,
             db_name=self.db_name,
@@ -155,6 +160,11 @@ class AttributesFillerDataModule(pl.LightningDataModule):
             mongodb_connection_string=self.mongodb_connection_string,
             db_name=self.db_name,
             metadata_collection_name='metadata'
+        )
+        self.save_hyperparameters(
+            dict(train_patients=self.train_patients,
+                 val_patients=self.val_patients,
+                 test_patients=self.test_patients)
         )
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
@@ -214,6 +224,51 @@ class AttributesFillerDataModule(pl.LightningDataModule):
         )
 
 
+class MultiOmicsDataModule(pl.LightningDataModule):
+    def __init__(self,
+                 mongodb_connection_string: str,
+                 db_name: str,
+                 modalities: str,
+                 feature_set: tp.Dict[str, List[str]] = None,
+                 drop_rate: tp.Dict[str, float] = 0.2,
+                 batch_size=256,
+                 num_workers: int = None,
+                 *args,
+                 **kwargs
+                 ):
+        super().__init__()
+        self.mongodb_connection_string = mongodb_connection_string
+        self.db_name = db_name
+        self.modalities = modalities
+        self.features_set = feature_set
+        self.drop_rate = drop_rate
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.train_patients, self.val_patients = MultiOmicsAttributesDataset.get_train_val_split(
+            mongodb_connection_string=self.mongodb_connection_string,
+            db_name=self.db_name,
+            metadata_collection_name='metadata'
+        ).values()
+        self.standardization_values = {modality: MultiOmicsAttributesDataset.get_min_max_values(
+            mongodb_connection_string=self.mongodb_connection_string,
+            db_name=self.db_name,
+            modality=modality,
+            patients=self.train_patients
+        )
+            for modality in self.modalities}
+
+        self.test_patients = MultiOmicsAttributesDataset.get_test_patients(
+            mongodb_connection_string=self.mongodb_connection_string,
+            db_name=self.db_name,
+            metadata_collection_name='metadata'
+        )
+        self.save_hyperparameters(
+            dict(train_patients=self.train_patients,
+                 val_patients=self.val_patients,
+                 test_patients=self.test_patients)
+        )
+
+
 class AttributesFillerModel(pl.LightningModule):
     def __init__(self, network_config: dict, lr: float, loss_term: str, *args, **kwargs):
         super().__init__()
@@ -230,8 +285,8 @@ class AttributesFillerModel(pl.LightningModule):
     def step(self, batch, phase: str = 'train'):
         pred = self.net(batch['inputs'])
 
-        loss_term = getattr(torch.nn, self.loss_term)
-        loss = torch.abs(pred - batch['outputs']).mean()
+        loss_term = getattr(torch.nn, self.loss_term)()
+        loss = loss_term(pred, batch['outputs'])
         self.log(f'{phase}/loss', loss, prog_bar=True, on_step=phase == 'train', sync_dist=True)
         return loss
 
@@ -245,10 +300,52 @@ class AttributesFillerModel(pl.LightningModule):
         return self.step(batch, phase='test')
 
 
+class MultiOmicsModel(pl.LightningModule):
+    triplet_kinds = ['anchor', 'positive', 'negative']
+
+    def __init__(self, network_configs: tp.Dict[str, dict], reconstruction_loss_term: str, *args, **kwargs):
+        self.nets = nn.ModuleDict(
+            {modality: MultiHeadAutoEncoderRegressor(**config) for modality, config in network_configs.items()})
+
+        self.reconstruction_loss_term = reconstruction_loss_term
+        self.save_hyperparameters()
+
+    def configure_optimizers(self):
+        opts = [torch.optim.Adam(net.parameters(), lr=1e-3) for modality, net in self.nets.items()]
+        return opts
+
+    def step(self, batch: list, phase: str = 'train'):
+        modality_inputs = {modality: dict(inputs=[], reconstruction_targets=[], idx=[]) for modality in
+                           self.nets.keys()}
+        for i, items in enumerate(batch):
+            for j, item in items:
+                modality_inputs[item['modality']]['inputs'].append(item['inputs'])
+                modality_inputs[item['modality']]['reconstruction_targets'].append(item['outputs'])
+                modality_inputs[item['modality']]['idx'].append(i)
+                modality_inputs[item['modality']]['kind'].append(self.triplet_kinds[j])
+
+    def training_step(self, batch, batch_idx):
+        return self.step(batch, phase='train')
+
+    def validation_step(self, batch, batch_idx):
+        return self.step(batch, phase='val')
+
+    def test_step(self, batch, batch_idx):
+        return self.step(batch, phase='test')
+
+
 @app.command()
-def train_attributes_filler(modality: str = typer.Option(...), gpus: int = typer.Option(0),
-                            batch_size: int = typer.Option(32)):
-    general_config = GeneralConfig(modality=modality)
+def train_attributes_filler(modality: str = typer.Option(...),
+                            gpus: int = typer.Option(0),
+                            batch_size: int = typer.Option(32),
+                            features_file_path: str = typer.Option(None)
+                            ):
+    if features_file_path:
+        feature_set = json.load(Path(features_file_path).open())
+    else:
+        feature_set = None
+
+    general_config = GeneralConfig(modality=modality, features=feature_set)
 
     wandb_logger = WandbLogger(project="AttributeFiller", log_model=True, name=general_config.modality)
 
@@ -258,7 +355,8 @@ def train_attributes_filler(modality: str = typer.Option(...), gpus: int = typer
                                              num_attributes=general_config.num_attributes,
                                              mongodb_connection_string=general_config.mongodb_connection_string,
                                              db_name=general_config.DATABASE_CONFIG_NAME,
-                                             debug=general_config.DEBUG)
+                                             debug=general_config.DEBUG,
+                                             feature_set=feature_set)
 
     trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
     attributes_filler_config = AttributesFillerConfig(input_features=general_config.num_attributes)
@@ -270,6 +368,34 @@ def train_attributes_filler(modality: str = typer.Option(...), gpus: int = typer
     trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger)
 
     trainer.fit(model, datamodule=dm)
+
+
+@app.command
+def train_multi_omics_model(modalities: tp.List = typer.Option(['mRNA', 'DNAm', 'miRNA']),
+                            gpus: int = typer.Option(0),
+                            batch_size: int = typer.Option(256),
+                            ):
+    general_config = dict()
+    data_config = dict()
+
+    # general_config = GeneralConfig(modality=modality, features=feature_set)
+
+    wandb_logger = WandbLogger(project="AttributeFiller", log_model=True, name=general_config.modality)
+
+    data_config = AttributesFillerDataConfig(config_name=general_config.DATABASE_CONFIG_NAME,
+                                             batch_size=batch_size,
+                                             modality=modality,
+                                             num_attributes=general_config.num_attributes,
+                                             mongodb_connection_string=general_config.mongodb_connection_string,
+                                             db_name=general_config.DATABASE_CONFIG_NAME,
+                                             debug=general_config.DEBUG,
+                                             feature_set=feature_set)
+
+    trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
+    attributes_filler_config = AttributesFillerConfig(input_features=general_config.num_attributes)
+
+    model = AttributesFillerModel(**attributes_filler_config.dict(), **data_config.dict())
+    dm = AttributesFillerDataModule(**data_config.dict())
 
 
 if __name__ == '__main__':

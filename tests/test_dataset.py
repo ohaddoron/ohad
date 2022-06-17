@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import json
 import mongomock
 import numpy as np
 import pymongo
@@ -157,3 +158,61 @@ class TestAttributeDataset:
             modality='miRNA'
         )
         assert isinstance(value_per_feature, dict)
+
+    @mongomock.patch(servers='localhost')
+    def test_patients_are_according_to_intersect(self, *args):
+        from src.dataset import AttributesDataset
+        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
+            metadata = json_util.loads(f.read())
+        with pymongo.MongoClient() as client:
+            client['TCGA']['miRNA'].insert_many(metadata)
+
+        ds = AttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
+                               db_name='TCGA',
+                               modality='miRNA',
+                               patients=['TCGA-AR-A24N'],
+                               drop_rate=0.2)
+
+        assert ds._patients == ['TCGA-AR-A24N']
+
+        ds = AttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
+                               db_name='TCGA',
+                               modality='miRNA',
+                               patients=None,
+                               drop_rate=0.2)
+        assert len(set(ds._patients) - {'TCGA-AR-A24N'}) > 0
+
+
+@patch.object(redis, 'StrictRedis', side_effect=FakeStrictRedis)
+class TestMultiOmicsAttributesDataset:
+    @mongomock.patch(servers='localhost')
+    def test_getitem(self, *args):
+        from src.dataset import MultiOmicsAttributesDataset
+        for file in [Path(__file__).parent.joinpath('../resources/miRNA.json'),
+                     Path(__file__).parent.joinpath('../resources/mRNA.json'),
+                     Path(__file__).parent.joinpath('../resources/DNAm.json')]:
+            with file.open() as f:
+                metadata = json_util.loads(f.read())
+            with pymongo.MongoClient() as client:
+                client['TCGA'][file.stem].insert_many(metadata)
+
+        ds = MultiOmicsAttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
+                                         db_name='TCGA',
+                                         modalities=['miRNA', 'DNAm', 'mRNA'],
+                                         patients=None,
+                                         features={'miRNA': None, 'DNAm': None,
+                                                   'mRNA': json.load(
+                                                       Path(__file__).parent.joinpath(
+                                                           '../resources/mRNA-features.json').open())},
+                                         drop_rate={'miRNA': 0.2, 'DNAm': 0.2, 'mRNA': 0.2}
+                                         )
+        item = ds[0]
+        assert isinstance(item, list)
+        assert len(item) == 3
+        assert all([
+                       'modality' in item_.keys() and 'inputs' in item_.keys() and 'patient' in item_.keys() and 'outputs' in item_.keys()
+                       for item_ in item])
+
+        dl = DataLoader(ds, num_workers=0, batch_size=2, collate_fn=lambda x: x)
+        item = next(iter(dl))
+        pass

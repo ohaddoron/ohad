@@ -734,6 +734,8 @@ class AttributesDataset(Dataset):
             patients = []
         if features is None:
             features = []
+
+        self.modality = modality
         client = self._connect_to_database(mongodb_connection_string=mongodb_connection_string)
 
         self._col = client[db_name][modality]
@@ -753,6 +755,18 @@ class AttributesDataset(Dataset):
         else:
             self.standardization_values = standardization_values
 
+    @property
+    def patients(self):
+        return self._patients
+
+    @property
+    def collection(self):
+        return self._col
+
+    @property
+    def features(self):
+        return self._feature_names
+
     @staticmethod
     def _connect_to_database(mongodb_connection_string):
         client = pymongo.MongoClient(mongodb_connection_string)
@@ -762,12 +776,13 @@ class AttributesDataset(Dataset):
     def __len__(self):
         return len(self._patients)
 
-    def _get_data(self, patient, features):
+    @staticmethod
+    def get_data(col: pymongo.collection.Collection, patient, features, modality: str):
         REDISCACHE = RedisCache()
 
-        @REDISCACHE.cache(expire=int(1e9), refresh=1, default=None, wait=True)
-        def __get_data(patient, features):
-            agg_result = list(self._col.aggregate([
+        @REDISCACHE.cache(expire=None, default=None, refresh=3600, wait=True)
+        def __get_data(patient, modality: str, features):
+            agg_result = list(col.aggregate([
                 {
                     '$match': {
                         'patient': patient,
@@ -787,7 +802,7 @@ class AttributesDataset(Dataset):
             )
             return json.dumps({item['name']: item['value'] for item in agg_result})
 
-        return json.loads(__get_data(patient=patient, features=features))
+        return json.loads(__get_data(patient=patient, modality=modality, features=sorted(features)))
 
     def standardize(self, values_dict: dict) -> dict:
         for key, value in values_dict.items():
@@ -800,7 +815,10 @@ class AttributesDataset(Dataset):
     def __getitem__(self, item: int):
         patient = self._patients[item]
 
-        values_dict = self._get_data(patient=patient, features=tuple(sorted(self._feature_names)))
+        values_dict = self.get_data(patient=patient,
+                                    features=tuple(sorted(self._feature_names)),
+                                    col=self._col,
+                                    modality=self.modality)
 
         values_dict = self.standardize(values_dict=values_dict)
 
@@ -897,3 +915,61 @@ class AttributesDataset(Dataset):
 
     def __repr__(self):
         return 'AttributesDataset'
+
+
+class MultiOmicsAttributesDataset(AttributesDataset):
+    def __init__(self,
+                 mongodb_connection_string: str,
+                 db_name: str,
+                 modalities: tp.List[str],
+                 patients: tp.List[str] = None,
+                 features: tp.Dict[str, tp.List] = None,
+                 drop_rate: tp.Dict[str, float] = 0.2,
+                 standardization_values: dict = None
+                 ):
+        features = features if features is not None else {modality: None for modality in modalities}
+        patients = patients if patients is not None else {modality: None for modality in modalities}
+        standardization_values = standardization_values if standardization_values is not None else {modality: None for
+                                                                                                    modality in
+                                                                                                    modalities}
+        self._ds = dict()
+        all_patients = []
+        self.modalities = modalities
+        for modality in modalities:
+            self._ds[modality] = AttributesDataset(
+                mongodb_connection_string=mongodb_connection_string,
+                db_name=db_name,
+                modality=modality,
+                patients=patients[modality],
+                features=features[modality],
+                drop_rate=drop_rate[modality],
+                standardization_values=standardization_values[modality]
+            )
+
+            all_patients += self._ds[modality].patients
+        self._patients = list(set(all_patients))
+        self.patients_modalities_mapping = dict()
+        for patient in self.patients:
+            self.patients_modalities_mapping[patient] = []
+            for modality in self.modalities:
+                if patient in self._ds[modality].patients:
+                    self.patients_modalities_mapping[patient].append(modality)
+
+    def __getitem__(self, item: int):
+        patient = self.patients[item]
+
+        available_modalities = self.patients_modalities_mapping[patient]
+        used_modalities = random.sample(available_modalities, 2)
+
+        outputs = []
+
+        for modality in used_modalities:
+            outputs.append({'modality': modality, **self._ds[modality][self._ds[modality].patients.index(patient)]})
+
+        negative_modality = random.choice(self.modalities)
+        negative_patient = random.choice(self._ds[negative_modality].patients)
+
+        outputs.append({'modality': negative_modality,
+                        **self._ds[negative_modality][self._ds[negative_modality].patients.index(negative_patient)]})
+
+        return outputs
