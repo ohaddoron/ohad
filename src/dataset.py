@@ -940,7 +940,7 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                 mongodb_connection_string=mongodb_connection_string,
                 db_name=db_name,
                 modality=modality,
-                patients=patients[modality],
+                patients=patients,
                 features=features[modality],
                 drop_rate=drop_rate[modality],
                 standardization_values=standardization_values[modality]
@@ -959,7 +959,10 @@ class MultiOmicsAttributesDataset(AttributesDataset):
         patient = self.patients[item]
 
         available_modalities = self.patients_modalities_mapping[patient]
-        used_modalities = random.sample(available_modalities, 2)
+        if len(available_modalities) >= 2:
+            used_modalities = random.sample(available_modalities, 2)
+        else:
+            used_modalities = available_modalities * 2
 
         outputs = []
 

@@ -16,9 +16,11 @@ class MLP(nn.Module):
 
         for layer_def in layer_defs:
             if layer_def.layer_type == 'Linear':
-                layers.append(getattr(nn, layer_def.layer_type)(last_layer_dim, layer_def.hidden_dim))
+                layers.append(getattr(nn, layer_def.layer_type)
+                              (last_layer_dim, layer_def.hidden_dim))
             else:
-                layers.append(getattr(nn, layer_def.layer_type)(**layer_def.params))
+                layers.append(getattr(nn, layer_def.layer_type)
+                              (**layer_def.params))
             if layer_def.batch_norm:
                 layers.append(nn.BatchNorm1d(layer_def.hidden_dim))
             if layer_def.activation is not None:
@@ -54,7 +56,8 @@ class AutoEncoder(nn.Module):
         self.zscore = ZScoreLayer(input_features)
 
         self.encoder = Encoder(input_features, encoder_layer_defs)
-        self.decoder = Decoder(encoder_layer_defs[-1].hidden_dim, decoder_layer_defs)
+        self.decoder = Decoder(
+            encoder_layer_defs[-1].hidden_dim, decoder_layer_defs)
 
     def normalize(self, x: torch.Tensor):
         return self.zscore(x)
@@ -108,7 +111,8 @@ class AutoEncoderAttention(nn.Sequential):
         self.autoencoder = AutoEncoder(input_features=input_features,
                                        encoder_layer_defs=encoder_layer_defs,
                                        decoder_layer_defs=decoder_layer_defs)
-        self.attention = Attention1d(input_channels=input_channels, output_channels=1)
+        self.attention = Attention1d(
+            input_channels=input_channels, output_channels=1)
 
     def forward(self, input):
         return self.autoencoder(self.attention(input).squeeze())
@@ -119,14 +123,18 @@ class MultiHeadAutoEncoderRegressor(AutoEncoder):
                  input_features,
                  encoder_layer_defs: tp.List[LayerDef],
                  decoder_layer_defs: tp.List[LayerDef],
-                 regressor_layer_defs: tp.List[LayerDef]):
+                 regressor_layer_defs: tp.List[LayerDef],
+                 *args,
+                 **kwargs):
         super().__init__(input_features, encoder_layer_defs, decoder_layer_defs)
-        self.regressor = MLP(encoder_layer_defs[-1].hidden_dim, regressor_layer_defs)
+        self.regressor = MLP(
+            encoder_layer_defs[-1].hidden_dim, regressor_layer_defs)
 
     def forward(self, x, *args, **kwargs):
         out = super().forward(x, return_aux=True)
 
-        out['aux'] = out['aux'] / torch.norm(out['aux'], p=2, dim=1).unsqueeze(1)
+        out['aux'] = out['aux'] / \
+            torch.norm(out['aux'], p=2, dim=1).unsqueeze(1)
 
         regression_out = self.regressor(out['aux'])
         return dict(encoder=out['aux'], autoencoder=out['out'], regression=regression_out)
