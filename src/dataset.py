@@ -918,6 +918,7 @@ class AttributesDataset(Dataset):
 
 
 class MultiOmicsAttributesDataset(AttributesDataset):
+
     def __init__(self,
                  mongodb_connection_string: str,
                  db_name: str,
@@ -928,7 +929,6 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                  standardization_values: dict = None
                  ):
         features = features if features is not None else {modality: None for modality in modalities}
-        patients = patients if patients is not None else {modality: None for modality in modalities}
         standardization_values = standardization_values if standardization_values is not None else {modality: None for
                                                                                                     modality in
                                                                                                     modalities}
@@ -976,3 +976,35 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                         **self._ds[negative_modality][self._ds[negative_modality].patients.index(negative_patient)]})
 
         return outputs
+
+    @staticmethod
+    def batch_collate_fn(modalities: tp.List[str]):
+        triplet_kinds = ['anchor', 'positive', 'negative']
+
+        def collate_fn(batch_):
+            batch = {modality: dict(
+                inputs=[],
+                reconstruction_targets=[],
+                idx=[],
+                triplet_kind=[]
+            ) for modality in modalities}
+            for i, items in enumerate(batch_):
+                for j, item in enumerate(items):
+                    batch[item['modality']]['inputs'].append(item['inputs'])
+                    batch[item['modality']]['reconstruction_targets'].append(item['outputs'])
+                    batch[item['modality']]['idx'].append(i)
+                    batch[item['modality']]['triplet_kind'].append(triplet_kinds[j])
+
+            for modality in batch.keys():
+                inputs = batch[modality]['inputs']
+                reconstruction_targets = batch[modality]['reconstruction_targets']
+
+                if inputs:
+                    batch[modality]['inputs'] = torch.from_numpy(np.stack(inputs))
+                if reconstruction_targets:
+                    batch[modality]['reconstruction_targets'] = torch.from_numpy(
+                        np.stack(reconstruction_targets))
+
+            return batch
+
+        return collate_fn

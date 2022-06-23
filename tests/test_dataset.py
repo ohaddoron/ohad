@@ -210,9 +210,16 @@ class TestMultiOmicsAttributesDataset:
         assert isinstance(item, list)
         assert len(item) == 3
         assert all([
-                       'modality' in item_.keys() and 'inputs' in item_.keys() and 'patient' in item_.keys() and 'outputs' in item_.keys()
-                       for item_ in item])
+            'modality' in item_.keys() and 'inputs' in item_.keys() and 'patient' in item_.keys() and 'outputs' in item_.keys()
+            for item_ in item])
 
-        dl = DataLoader(ds, num_workers=0, batch_size=2, collate_fn=lambda x: x)
+        dl = DataLoader(ds,
+                        num_workers=0,
+                        batch_size=2,
+                        collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(modalities=['miRNA', 'DNAm', 'mRNA']))
         item = next(iter(dl))
-        pass
+        assert isinstance(item, dict)
+        assert {'miRNA', 'DNAm', 'mRNA'} == set(item.keys())
+
+        for value in item.values():
+            assert {'inputs', 'reconstruction_targets', 'idx', 'triplet_kind'} == set(value.keys())

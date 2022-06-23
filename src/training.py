@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Optional, List, Type
 import typing as tp
 import json
+
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 import pytorch_lightning as pl
 import toml
@@ -20,11 +22,12 @@ import torch
 from bson import json_util
 from src.models import LayerDef
 from src.models.mlp import MLP, MultiHeadAutoEncoderRegressor, AutoEncoder
-
+import numpy as np
 from src.dataset import AttributesDataset, MultiOmicsAttributesDataset
-
+from torch.nn import TripletMarginWithDistanceLoss, TripletMarginLoss
 from typer import Typer
 import warnings
+from torch.nn import functional as F
 
 warnings.filterwarnings("ignore", category=UserWarning)
 app = Typer()
@@ -89,8 +92,9 @@ class MultiOmicsDataConfig(BaseModel):
 
     def __init__(self, debug: bool, *args, **kwargs):
         super().__init__(**kwargs)
-        self.num_workers = 0 if debug else min(os.cpu_count(), 16)
-        self.drop_rate = {modality: self.drop_rate_base for modality in self.modalities}
+        self.num_workers = 0 if debug else min(os.cpu_count(), 32)
+        self.drop_rate = {
+            modality: self.drop_rate_base for modality in self.modalities}
 
 
 class AttributesFillerDataConfig(BaseModel):
@@ -104,10 +108,10 @@ class AttributesFillerDataConfig(BaseModel):
     num_attributes: int
     mongodb_connection_string: str
     db_name: str
-    feature_set: tp.List[str]
+    feature_set: tp.List[str] = None
 
-    def __init__(self, debug: bool, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, debug: bool, **kwargs):
+        super().__init__(**kwargs)
         self.num_workers = 0 if debug else min(os.cpu_count(), 16)
 
     def __hash__(self):
@@ -136,6 +140,7 @@ class NetworkConfig(BaseModel):
 class MultiOmicsNetworkConfig(BaseModel):
     input_features: tp.Dict[str, float]
     modality_model: tp.Dict[str, tp.List[LayerDef]] = dict()
+    embedding_size: int = 8
 
     def __init__(self, input_features, *args, **kwargs):
         super().__init__(input_features=input_features)
@@ -156,7 +161,7 @@ class MultiOmicsNetworkConfig(BaseModel):
                         params=dict(p=0.2)
                     ),
                     LayerDef(
-                        hidden_dim=8,
+                        hidden_dim=self.embedding_size,
                         activation='LeakyReLU',
                         batch_norm=True
                     )
@@ -172,13 +177,13 @@ class MultiOmicsNetworkConfig(BaseModel):
 
 
 class AttributesFillerConfig(BaseModel):
-    network_config: MultiOmicsNetworkConfig = None
+    network_config: NetworkConfig = None
     loss_term: str = 'SmoothL1Loss'
     lr: float = 1e-3
 
     def __init__(self, input_features, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.network_config = MultiOmicsNetworkConfig(
+        self.network_config = NetworkConfig(
             input_features=input_features
         )
 
@@ -191,7 +196,7 @@ class MultiOmicsModelConfig(BaseModel):
         super().__init__()
         self.network_config = MultiOmicsNetworkConfig(
             input_features=input_features
-        ).modality_model
+        )
 
 
 class TrainerConfig(BaseModel):
@@ -387,7 +392,7 @@ class MultiOmicsDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers or os.cpu_count(),
             shuffle=True,
-            collate_fn=lambda x: x
+            collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -405,7 +410,7 @@ class MultiOmicsDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers or os.cpu_count(),
             shuffle=False,
-            collate_fn=lambda x: x
+            collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -423,7 +428,7 @@ class MultiOmicsDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers or os.cpu_count(),
             shuffle=False,
-            collate_fn=lambda x: x
+            collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
 
 
@@ -462,33 +467,63 @@ class AttributesFillerModel(pl.LightningModule):
 class MultiOmicsModel(pl.LightningModule):
     triplet_kinds = ['anchor', 'positive', 'negative']
 
-    def __init__(self, network_config: tp.Dict[str, dict], reconstruction_loss_term: str, *args, **kwargs):
+    def __init__(self,
+                 network_config: tp.Dict[str, dict],
+                 reconstruction_loss_term: str,
+                 data_config: dict = None,
+                 **kwargs):
         super().__init__()
         self.nets = nn.ModuleDict()
-        for modality, config in network_config.items():
+        for modality, config in network_config['modality_model'].items():
             for key in ['encoder_layer_defs', 'decoder_layer_defs']:
-                config[key] = [LayerDef(**item) for item in config[key]]
+                config[key] = [LayerDef(**item) if isinstance(item, dict) else item for item in config[key]]
             self.nets[modality] = AutoEncoder(**config)
 
         self.reconstruction_loss_term = reconstruction_loss_term
+        self.triplet_loss_term = TripletMarginWithDistanceLoss(
+            distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y), margin=0.2)
         self.save_hyperparameters()
+        self.save_hyperparameters(kwargs)
+        self.save_hyperparameters(data_config)
 
     def configure_optimizers(self):
         opts = [torch.optim.Adam(net.parameters(), lr=1e-3)
                 for modality, net in self.nets.items()]
         return opts
 
-    def step(self, batch: list, phase: str = 'train'):
-        modality_inputs = {modality: dict(inputs=[], reconstruction_targets=[], idx=[]) for modality in
-                           self.nets.keys()}
-        for i, items in enumerate(batch):
-            for j, item in enumerate(items):
-                modality_inputs[item['modality']]['inputs'].append(item['inputs'])
-                modality_inputs[item['modality']]['reconstruction_targets'].append(item['outputs'])
-                modality_inputs[item['modality']]['idx'].append(i)
-                modality_inputs[item['modality']]['kind'].append(self.triplet_kinds[j])
+    def step(self, batch: dict, phase: str = 'train'):
 
-        pass
+        embedding_place_holder = torch.empty(
+            max([max(batch[modality]['idx']) for modality in self.nets.keys()]) + 1, 3,
+            self.hparams.network_config['embedding_size']).to(
+            self.device)
+
+        reconstruction_loss = torch.tensor(0.).to(self.device)
+
+        for modality in batch.keys():
+            inputs = batch[modality]['inputs']
+            reconstruction_targets = batch[modality]['reconstruction_targets']
+            net_outputs = self.nets[modality](inputs, return_aux=True)
+            rec_loss = getattr(torch.nn, self.reconstruction_loss_term)()(reconstruction_targets,
+                                                                          net_outputs['out'])
+
+            self.log(f'{phase}/{modality}_reconstruction_loss', rec_loss, on_step=phase == 'train')
+
+            reconstruction_loss += rec_loss
+
+            embeddings = net_outputs['aux']
+            for idx, triplet_kind, embedding in zip(batch[modality]['idx'], batch[modality]['triplet_kind'],
+                                                    embeddings):
+                embedding_place_holder[idx, self.triplet_kinds.index(triplet_kind)] = embedding
+
+        triplet_loss = self.triplet_loss_term(
+            embedding_place_holder[:, 0], embedding_place_holder[:, 1], embedding_place_holder[:, 2])
+        self.log(f'{phase}/reconstruction_loss', reconstruction_loss, prog_bar=True, on_step=phase == 'train')
+        self.log(f'{phase}/triplet_loss', triplet_loss, prog_bar=True, on_step=phase == 'train')
+        return triplet_loss + reconstruction_loss
+
+    def forward(self, x: torch.Tensor, modality: str) -> tp.Dict[str, torch.Tensor]:
+        return self.nets[modality](x, return_aux=True)
 
     def training_step(self, batch, batch_idx, *args, **kwargs):
         return self.step(batch, phase='train')
@@ -534,7 +569,15 @@ def train_attributes_filler(modality: str = typer.Option(...),
     dm = AttributesFillerDataModule(**data_config.dict())
 
     wandb_logger.watch(model)
-    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger)
+    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger,
+                         callbacks=[
+                             ModelCheckpoint(
+                                 dirpath=Path(wandb_logger.experiment.settings.sync_dir).joinpath('files').as_posix(),
+                                 every_n_epochs=10,
+                                 filename=f'{modality}-attribute-model'
+                             )
+                         ]
+                         )
 
     trainer.fit(model, datamodule=dm)
 
@@ -547,7 +590,7 @@ def get_modality_min_max_values(modality):
 @app.command()
 def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DNAm', 'miRNA']),
                             gpus: int = typer.Option(0),
-                            batch_size: int = typer.Option(16),
+                            batch_size: int = typer.Option(128),
                             ):
     general_config = MultiOmicsGeneralConfig(
         features=None,
@@ -555,7 +598,11 @@ def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DN
     )
 
     wandb_logger = WandbLogger(
-        project="MultiOmics", log_model=True, name='-'.join(sorted(general_config.modalities)))
+        project="MultiOmics",
+        log_model=True,
+        name='-'.join(sorted(general_config.modalities)),
+        save_dir=pl.Trainer().default_root_dir
+    )
 
     data_config = MultiOmicsDataConfig(config_name=general_config.DATABASE_CONFIG_NAME,
                                        batch_size=batch_size,
@@ -568,18 +615,45 @@ def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DN
                                        #     modality=modality) for modality in modalities},
                                        )
 
+    # trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
     trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
     multi_omics_model_config = MultiOmicsModelConfig(
         input_features=general_config.num_attributes)
 
     model = MultiOmicsModel(
         **multi_omics_model_config.dict(),
-        **data_config.dict()
+        data_config=data_config.dict()
     )
+
+    wandb_logger.watch(model)
     dm = MultiOmicsDataModule(**data_config.dict())
-    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger)
+    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger,
+                         callbacks=[
+                             ModelCheckpoint(
+                                 dirpath=Path(wandb_logger.experiment.settings.sync_dir).joinpath('files').as_posix(),
+                                 every_n_epochs=10,
+                                 filename='multi-omics-model'
+                             )
+                         ]
+                         )
 
     trainer.fit(model, dm)
+
+
+@app.command()
+def restore(run_path: str = typer.Option(..., help='wandb run id to restore the model from'),
+            debug: bool = typer.Option(False, help='If True, will setup data module in debug mode')):
+    import wandb
+    ckpt = torch.load(wandb.restore('multi-omics-model-v1.ckpt', run_path=run_path).name)
+    model = MultiOmicsModel(**ckpt['hyper_parameters'])
+    model.load_state_dict(ckpt['state_dict'])
+    model.freeze()
+
+    data_config = MultiOmicsDataConfig(**ckpt['hyper_parameters']['data_config'], debug=debug)
+    dm = MultiOmicsDataModule(**data_config.dict())
+    trainer = pl.Trainer(TrainerConfig(debug=debug))
+
+    trainer.test(model, dm.train_dataloader())
 
 
 if __name__ == '__main__':
