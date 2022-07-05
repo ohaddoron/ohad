@@ -1,0 +1,4 @@
+defaults:
+  - debug: false
+  - database_name: TCGAOmics
+  - mongodb_connection_string: mongodb://TCGAManager:MongoDb-eb954cffde2cedf17b22b@localhost:27017/TCGAOmics?authSource=admin

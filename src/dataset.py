@@ -737,6 +737,8 @@ class AttributesDataset(Dataset):
 
         self.modality = modality
         client = self._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        self._mongodb_connection_string = mongodb_connection_string
+        self._db_name = db_name
 
         self._col = client[db_name][modality]
 
@@ -916,6 +918,14 @@ class AttributesDataset(Dataset):
     def __repr__(self):
         return 'AttributesDataset'
 
+    @lru_cache
+    def get_patient_project_id(self, patient):
+        with pymongo.MongoClient(self._mongodb_connection_string) as client:
+            db = client[self._db_name]
+            col = db['metadata']
+
+            return col.find_one({'patient': patient})['project_id']
+
 
 class MultiOmicsAttributesDataset(AttributesDataset):
 
@@ -967,13 +977,18 @@ class MultiOmicsAttributesDataset(AttributesDataset):
         outputs = []
 
         for modality in used_modalities:
-            outputs.append({'modality': modality, **self._ds[modality][self._ds[modality].patients.index(patient)]})
+            outputs.append({'modality': modality, **self._ds[modality][self._ds[modality].patients.index(patient)],
+                            'project_id': self._ds[modality].get_patient_project_id(patient=patient)})
 
         negative_modality = random.choice(self.modalities)
         negative_patient = random.choice(self._ds[negative_modality].patients)
 
-        outputs.append({'modality': negative_modality,
-                        **self._ds[negative_modality][self._ds[negative_modality].patients.index(negative_patient)]})
+        outputs.append(
+            {'modality': negative_modality,
+             **self._ds[negative_modality][self._ds[negative_modality].patients.index(negative_patient)],
+             'project_id': self._ds[negative_modality].get_patient_project_id(patient=negative_patient)
+             }
+        )
 
         return outputs
 
@@ -985,12 +1000,14 @@ class MultiOmicsAttributesDataset(AttributesDataset):
             batch = {modality: dict(
                 inputs=[],
                 reconstruction_targets=[],
+                project_id=[],
                 idx=[],
                 triplet_kind=[]
             ) for modality in modalities}
             for i, items in enumerate(batch_):
                 for j, item in enumerate(items):
                     batch[item['modality']]['inputs'].append(item['inputs'])
+                    batch[item['modality']]['project_id'].append(item['project_id'])
                     batch[item['modality']]['reconstruction_targets'].append(item['outputs'])
                     batch[item['modality']]['idx'].append(i)
                     batch[item['modality']]['triplet_kind'].append(triplet_kinds[j])

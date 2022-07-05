@@ -190,7 +190,8 @@ class TestMultiOmicsAttributesDataset:
         from src.dataset import MultiOmicsAttributesDataset
         for file in [Path(__file__).parent.joinpath('../resources/miRNA.json'),
                      Path(__file__).parent.joinpath('../resources/mRNA.json'),
-                     Path(__file__).parent.joinpath('../resources/DNAm.json')]:
+                     Path(__file__).parent.joinpath('../resources/DNAm.json'),
+                     Path(__file__).parent.joinpath('../resources/metadata.json')]:
             with file.open() as f:
                 metadata = json_util.loads(f.read())
             with pymongo.MongoClient() as client:
@@ -222,4 +223,4 @@ class TestMultiOmicsAttributesDataset:
         assert {'miRNA', 'DNAm', 'mRNA'} == set(item.keys())
 
         for value in item.values():
-            assert {'inputs', 'reconstruction_targets', 'idx', 'triplet_kind'} == set(value.keys())
+            assert {'inputs', 'reconstruction_targets', 'idx', 'triplet_kind', 'project_id'} == set(value.keys())
