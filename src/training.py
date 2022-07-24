@@ -9,7 +9,7 @@ import typing as tp
 import json
 
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 import pytorch_lightning as pl
 import toml
 import typer
@@ -28,6 +28,8 @@ from torch.nn import TripletMarginWithDistanceLoss, TripletMarginLoss
 from typer import Typer
 import warnings
 from torch.nn import functional as F
+from pycox.models import LogisticHazard, DeepHitSingle
+from pycox.models.loss import NLLLogistiHazardLoss
 
 warnings.filterwarnings("ignore", category=UserWarning)
 app = Typer()
@@ -93,8 +95,7 @@ class MultiOmicsDataConfig(BaseModel):
     def __init__(self, debug: bool, *args, **kwargs):
         super().__init__(**kwargs)
         self.num_workers = 0 if debug else min(os.cpu_count(), 32)
-        self.drop_rate = {
-            modality: self.drop_rate_base for modality in self.modalities}
+        self.drop_rate = {modality: self.drop_rate_base for modality in self.modalities}
 
 
 class AttributesFillerDataConfig(BaseModel):
@@ -479,6 +480,7 @@ class MultiOmicsModel(pl.LightningModule):
                 config[key] = [LayerDef(**item) if isinstance(item, dict) else item for item in config[key]]
             self.nets[modality] = AutoEncoder(**config)
 
+        self.logistic_hazard_model = LogisticHazard(net=self.nets, loss=NLLLogistiHazardLoss(reduction='mean'))
         self.reconstruction_loss_term = reconstruction_loss_term
         self.triplet_loss_term = TripletMarginWithDistanceLoss(
             distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y), margin=0.2)
@@ -504,8 +506,13 @@ class MultiOmicsModel(pl.LightningModule):
             inputs = batch[modality]['inputs']
             reconstruction_targets = batch[modality]['reconstruction_targets']
             net_outputs = self.nets[modality](inputs, return_aux=True)
-            rec_loss = getattr(torch.nn, self.reconstruction_loss_term)()(reconstruction_targets,
-                                                                          net_outputs['out'])
+            rec_loss: torch.Tensor = getattr(torch.nn, self.reconstruction_loss_term)(reduction='none')(
+                reconstruction_targets,
+                net_outputs['out'])
+
+            for project_id, loss_val in zip(batch[modality]['project_id'], rec_loss):
+                self.log(f'{phase}/reconstruction_loss_by_class/{project_id}', loss_val, on_step=False, on_epoch=True)
+            rec_loss = torch.mean(rec_loss)
 
             self.log(f'{phase}/{modality}_reconstruction_loss', rec_loss, on_step=phase == 'train')
 
@@ -651,7 +658,7 @@ def restore(run_path: str = typer.Option(..., help='wandb run id to restore the 
 
     data_config = MultiOmicsDataConfig(**ckpt['hyper_parameters']['data_config'], debug=debug)
     dm = MultiOmicsDataModule(**data_config.dict())
-    trainer = pl.Trainer(TrainerConfig(debug=debug))
+    trainer = pl.Trainer(**TrainerConfig(debug=debug, enable_checkpointing=False).dict())
 
     trainer.test(model, dm.train_dataloader())
 

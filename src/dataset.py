@@ -35,6 +35,11 @@ def time_elapsed(fn, *args, **kwargs):
     return elapsed
 
 
+@lru_cache
+def _init_redis_cache():
+    return RedisCache()
+
+
 class BaseDataset:
     def __init__(self, patients: tp.List[str], config_name: str = 'omicsdb', get_from_redis: bool = False):
         self.config_name = config_name
@@ -720,6 +725,13 @@ class AttributeSignDataset(AttributeFillerDataset):
         return sample
 
 
+@lru_cache
+def _connect_to_database(mongodb_connection_string):
+    client = pymongo.MongoClient(mongodb_connection_string)
+    logger.debug(client.server_info())
+    return client
+
+
 class AttributesDataset(Dataset):
     def __init__(self,
                  mongodb_connection_string: str,
@@ -736,7 +748,7 @@ class AttributesDataset(Dataset):
             features = []
 
         self.modality = modality
-        client = self._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
         self._mongodb_connection_string = mongodb_connection_string
         self._db_name = db_name
 
@@ -769,18 +781,12 @@ class AttributesDataset(Dataset):
     def features(self):
         return self._feature_names
 
-    @staticmethod
-    def _connect_to_database(mongodb_connection_string):
-        client = pymongo.MongoClient(mongodb_connection_string)
-        logger.debug(client.server_info())
-        return client
-
     def __len__(self):
         return len(self._patients)
 
     @staticmethod
     def get_data(col: pymongo.collection.Collection, patient, features, modality: str):
-        REDISCACHE = RedisCache()
+        REDISCACHE = _init_redis_cache()
 
         @REDISCACHE.cache(expire=None, default=None, refresh=3600, wait=True)
         def __get_data(patient, modality: str, features):
@@ -829,9 +835,11 @@ class AttributesDataset(Dataset):
              self._feature_names]).astype(np.float32)
 
         dirty = vals.copy()
-
         mask = (np.random.rand(*vals.shape) < self._drop_rate).astype(np.bool)
-        r = np.random.rand(*vals.shape) * np.max(vals)
+        if len(np.unique(vals)) > 3:
+            r = np.random.rand(*vals.shape) * np.max(vals)
+        else:
+            r = np.random.randint(low=-1, high=2, size=vals.shape)
         dirty[mask] = r[mask]
 
         vals = np.clip(vals, 0, 1)
@@ -845,7 +853,7 @@ class AttributesDataset(Dataset):
                             mongodb_connection_string: str,
                             db_name: str,
                             metadata_collection_name: str = 'metadata') -> dict:
-        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
         col = client[db_name][metadata_collection_name]
 
         patients_meta = pd.DataFrame(col.find({'split': 'train'}))
@@ -861,7 +869,7 @@ class AttributesDataset(Dataset):
                           mongodb_connection_string: str,
                           db_name: str,
                           metadata_collection_name: str = 'metadata'):
-        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
         col = client[db_name][metadata_collection_name]
         return col.find({'split': 'test'}).distinct('patient')
 
@@ -873,7 +881,7 @@ class AttributesDataset(Dataset):
                            patients=None) -> dict:
         if patients is None:
             patients = []
-        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
         col = client[db_name][modality]
 
         patients = list(
@@ -911,7 +919,7 @@ class AttributesDataset(Dataset):
                            modality
                            ) -> int:
 
-        client = cls._connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
         col = client[db_name][modality]
         return len(col.distinct('name'))
 
@@ -920,11 +928,11 @@ class AttributesDataset(Dataset):
 
     @lru_cache
     def get_patient_project_id(self, patient):
-        with pymongo.MongoClient(self._mongodb_connection_string) as client:
-            db = client[self._db_name]
-            col = db['metadata']
+        client = _connect_to_database(self._mongodb_connection_string)
+        db = client[self._db_name]
+        col = db['metadata']
 
-            return col.find_one({'patient': patient})['project_id']
+        return col.find_one({'patient': patient})['project_id']
 
 
 class MultiOmicsAttributesDataset(AttributesDataset):
@@ -966,7 +974,7 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                     self.patients_modalities_mapping[patient].append(modality)
 
     def __getitem__(self, item: int):
-        patient = self.patients[item]
+        patient = self.patients[item % len(self.patients)]
 
         available_modalities = self.patients_modalities_mapping[patient]
         if len(available_modalities) >= 2:
@@ -991,6 +999,9 @@ class MultiOmicsAttributesDataset(AttributesDataset):
         )
 
         return outputs
+
+    def __len__(self):
+        return super().__len__()
 
     @staticmethod
     def batch_collate_fn(modalities: tp.List[str]):
