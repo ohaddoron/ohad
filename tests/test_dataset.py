@@ -109,15 +109,27 @@ class TestAttentionMixin:
         assert item['attributes'].shape == torch.Size((2, 2, 19672))
 
 
+@pytest.fixture(scope='class')
+def setup_database():
+    with mongomock.patch(servers='localhost'):
+        with pymongo.MongoClient() as client:
+            for file in [Path(__file__).parent.joinpath('../resources/miRNA.json'),
+                         Path(__file__).parent.joinpath('../resources/mRNA.json'),
+                         Path(__file__).parent.joinpath('../resources/DNAm.json'),
+                         Path(__file__).parent.joinpath('../resources/metadata.json'),
+                         Path(__file__).parent.joinpath('../resources/survival.json')]:
+                with file.open() as f:
+                    metadata = json_util.loads(f.read())
+                with pymongo.MongoClient() as client:
+                    client['TCGA'][file.stem].insert_many(metadata)
+
+        yield
+
+
 @patch.object(redis, 'StrictRedis', side_effect=FakeStrictRedis)
 class TestAttributeDataset:
-    @mongomock.patch(servers='localhost')
-    def test_get_train_val_split(self, *args):
+    def test_get_train_val_split(self, redis, setup_database, *args):
         from src.dataset import AttributesDataset
-        with Path(__file__).parent.joinpath('../resources/patients_metadata.json').open() as f:
-            metadata = json_util.loads(f.read())
-        with pymongo.MongoClient() as client:
-            client['TCGA']['metadata'].insert_many(metadata)
 
         out = AttributesDataset.get_train_val_split(mongodb_connection_string='mongodb://localhost:27017',
                                                     db_name='TCGA',
@@ -126,13 +138,8 @@ class TestAttributeDataset:
 
         assert not set(train_patients).intersection(val_patients)
 
-    @mongomock.patch(servers='localhost')
-    def test_getitem(self, *args):
+    def test_getitem(self, redis, setup_database, *args):
         from src.dataset import AttributesDataset
-        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
-            metadata = json_util.loads(f.read())
-        with pymongo.MongoClient() as client:
-            client['TCGA']['miRNA'].insert_many(metadata)
 
         ds = AttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
                                db_name='TCGA',
@@ -145,13 +152,8 @@ class TestAttributeDataset:
         assert 0. <= item['inputs'].max() <= 1.
         assert 0. <= item['outputs'].max() <= 1.
 
-    @mongomock.patch(servers='localhost')
-    def test_min_max_values(self, *args):
+    def test_min_max_values(self, redis, setup_database, *args):
         from src.dataset import AttributesDataset
-        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
-            metadata = json_util.loads(f.read())
-        with pymongo.MongoClient() as client:
-            client['TCGA']['miRNA'].insert_many(metadata)
         value_per_feature = AttributesDataset.get_min_max_values(
             mongodb_connection_string='mongodb://localhost:27017',
             db_name='TCGA',
@@ -159,13 +161,8 @@ class TestAttributeDataset:
         )
         assert isinstance(value_per_feature, dict)
 
-    @mongomock.patch(servers='localhost')
-    def test_patients_are_according_to_intersect(self, *args):
+    def test_patients_are_according_to_intersect(self, redis, setup_database, *args):
         from src.dataset import AttributesDataset
-        with Path(__file__).parent.joinpath('../resources/miRNA.json').open() as f:
-            metadata = json_util.loads(f.read())
-        with pymongo.MongoClient() as client:
-            client['TCGA']['miRNA'].insert_many(metadata)
 
         ds = AttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
                                db_name='TCGA',
@@ -185,17 +182,8 @@ class TestAttributeDataset:
 
 @patch.object(redis, 'StrictRedis', side_effect=FakeStrictRedis)
 class TestMultiOmicsAttributesDataset:
-    @mongomock.patch(servers='localhost')
-    def test_getitem(self, *args):
+    def test_getitem(self, redis, setup_database, *args):
         from src.dataset import MultiOmicsAttributesDataset
-        for file in [Path(__file__).parent.joinpath('../resources/miRNA.json'),
-                     Path(__file__).parent.joinpath('../resources/mRNA.json'),
-                     Path(__file__).parent.joinpath('../resources/DNAm.json'),
-                     Path(__file__).parent.joinpath('../resources/metadata.json')]:
-            with file.open() as f:
-                metadata = json_util.loads(f.read())
-            with pymongo.MongoClient() as client:
-                client['TCGA'][file.stem].insert_many(metadata)
 
         ds = MultiOmicsAttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
                                          db_name='TCGA',

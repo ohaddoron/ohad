@@ -15,6 +15,8 @@ import pandas as pd
 import pymongo
 import torch
 from numpy.core._simd import targets
+from pycox.models import LogisticHazard, BCESurv
+from pycox.preprocessing.label_transforms import LabTransDiscreteTime
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
@@ -38,6 +40,11 @@ def time_elapsed(fn, *args, **kwargs):
 @lru_cache
 def _init_redis_cache():
     return RedisCache()
+
+
+@lru_cache
+def _init_disk_cache():
+    return diskcache.Cache(Path(tempfile.gettempdir(), 'MultiOmics').as_posix(), size_limit=100 * 2 ** 30)
 
 
 class BaseDataset:
@@ -737,6 +744,7 @@ class AttributesDataset(Dataset):
                  mongodb_connection_string: str,
                  db_name: str,
                  modality: str,
+                 label_transformer: LabTransDiscreteTime,
                  patients=None,
                  features=None,
                  drop_rate: float = 0.2,
@@ -759,6 +767,9 @@ class AttributesDataset(Dataset):
         self._patients = list(
             set(self._col.distinct('patient')).intersection(set(patients))) if patients else self._col.distinct(
             'patient')
+        self.labtrans = label_transformer
+
+        self.survival_data = self._get_survival_data(label_transformer=self.labtrans)
 
         if standardization_values is None:
             logger.debug(f'Fetching standardization for {modality}')
@@ -768,6 +779,31 @@ class AttributesDataset(Dataset):
                                                                   patients=self._patients)
         else:
             self.standardization_values = standardization_values
+
+    def _get_survival_data(self, label_transformer: LabTransDiscreteTime):
+        raw_survival_data = self.get_survival_data_all_patients(
+            mongodb_connection_string=self._mongodb_connection_string,
+            db_name=self._db_name,
+            patients=self.patients)
+        get_target = lambda x: (x['duration'].values, x['event'].values)
+        survival_data = label_transformer.transform(*get_target(raw_survival_data))
+
+        return [dict(patient=patient,
+                     duration=survival_data[0][i],
+                     event=survival_data[1][i]) for i, patient in
+                enumerate(self.patients)]
+
+    @classmethod
+    def get_label_transformer(cls, mongodb_connection_string, db_name, num_durations: int, patients: tp.List[str]):
+        survival_data = cls.get_survival_data_all_patients(mongodb_connection_string=mongodb_connection_string,
+                                                           db_name=db_name,
+                                                           patients=patients)
+
+        get_target = lambda x: (x['duration'].values, x['event'].values)
+
+        labtrans = BCESurv.label_transform(num_durations)
+        labtrans.fit_transform(*get_target(survival_data))
+        return labtrans
 
     @property
     def patients(self):
@@ -786,9 +822,9 @@ class AttributesDataset(Dataset):
 
     @staticmethod
     def get_data(col: pymongo.collection.Collection, patient, features, modality: str):
-        REDISCACHE = _init_redis_cache()
+        REDIS_CACHE = _init_redis_cache()
 
-        @REDISCACHE.cache(expire=None, default=None, refresh=3600, wait=True)
+        @REDIS_CACHE.cache_json_wait(refresh=100000, expire=None)
         def __get_data(patient, modality: str, features):
             agg_result = list(col.aggregate([
                 {
@@ -808,9 +844,27 @@ class AttributesDataset(Dataset):
             ]
             )
             )
-            return json.dumps({item['name']: item['value'] for item in agg_result})
+            return {item['name']: item['value'] for item in agg_result}
 
-        return json.loads(__get_data(patient=patient, modality=modality, features=sorted(features)))
+        return __get_data(patient=patient, modality=modality, features=sorted(features))
+
+    @staticmethod
+    def get_survival_data_all_patients(mongodb_connection_string: str, db_name: str, patients: tp.List[str]):
+        col = _connect_to_database(mongodb_connection_string)[db_name]['survival']
+        return pd.DataFrame(col.aggregate([
+            {
+                '$match': {
+                    'patient': {'$in': patients}
+                }
+            }, {
+                '$project': {
+                    'duration': '$time',
+                    'event': 1,
+                    '_id': 0,
+                    'patient': 1
+                }
+            }
+        ]))
 
     def standardize(self, values_dict: dict) -> dict:
         for key, value in values_dict.items():
@@ -846,7 +900,8 @@ class AttributesDataset(Dataset):
 
         assert 0 <= np.max(vals) <= 1
 
-        return dict(inputs=dirty, outputs=vals, patient=patient)
+        return dict(inputs=dirty, outputs=vals, patient=patient,
+                    survival_data=next(filter(lambda x: x['patient'] == patient, self.survival_data)))
 
     @classmethod
     def get_train_val_split(cls,
@@ -923,10 +978,19 @@ class AttributesDataset(Dataset):
         col = client[db_name][modality]
         return len(col.distinct('name'))
 
+    @classmethod
+    def get_feature_names(cls,
+                          mongodb_connection_string: str,
+                          db_name: str,
+                          modality: str) -> tp.List[str]:
+        client = _connect_to_database(mongodb_connection_string=mongodb_connection_string)
+        col = client[db_name][modality]
+        return col.distinct('name')
+
     def __repr__(self):
         return 'AttributesDataset'
 
-    @lru_cache
+    @lru_cache(maxsize=None)
     def get_patient_project_id(self, patient):
         client = _connect_to_database(self._mongodb_connection_string)
         db = client[self._db_name]
@@ -941,10 +1005,12 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                  mongodb_connection_string: str,
                  db_name: str,
                  modalities: tp.List[str],
+                 label_transformer: LabTransDiscreteTime,
                  patients: tp.List[str] = None,
                  features: tp.Dict[str, tp.List] = None,
                  drop_rate: tp.Dict[str, float] = 0.2,
-                 standardization_values: dict = None
+                 standardization_values: dict = None,
+                 **kwargs
                  ):
         features = features if features is not None else {modality: None for modality in modalities}
         standardization_values = standardization_values if standardization_values is not None else {modality: None for
@@ -961,7 +1027,8 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                 patients=patients,
                 features=features[modality],
                 drop_rate=drop_rate[modality],
-                standardization_values=standardization_values[modality]
+                standardization_values=standardization_values[modality],
+                label_transformer=label_transformer
             )
 
             all_patients += self._ds[modality].patients
@@ -1006,6 +1073,7 @@ class MultiOmicsAttributesDataset(AttributesDataset):
     @staticmethod
     def batch_collate_fn(modalities: tp.List[str]):
         triplet_kinds = ['anchor', 'positive', 'negative']
+        get_target = lambda x: (x['duration'].values, x['event'].values)
 
         def collate_fn(batch_):
             batch = {modality: dict(
@@ -1013,7 +1081,8 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                 reconstruction_targets=[],
                 project_id=[],
                 idx=[],
-                triplet_kind=[]
+                triplet_kind=[],
+                survival_data=[]
             ) for modality in modalities}
             for i, items in enumerate(batch_):
                 for j, item in enumerate(items):
@@ -1022,16 +1091,22 @@ class MultiOmicsAttributesDataset(AttributesDataset):
                     batch[item['modality']]['reconstruction_targets'].append(item['outputs'])
                     batch[item['modality']]['idx'].append(i)
                     batch[item['modality']]['triplet_kind'].append(triplet_kinds[j])
+                    batch[item['modality']]['survival_data'].append(item['survival_data'])
 
             for modality in batch.keys():
                 inputs = batch[modality]['inputs']
                 reconstruction_targets = batch[modality]['reconstruction_targets']
+                surival_data = batch[modality]['survival_data']
 
                 if inputs:
                     batch[modality]['inputs'] = torch.from_numpy(np.stack(inputs))
                 if reconstruction_targets:
                     batch[modality]['reconstruction_targets'] = torch.from_numpy(
                         np.stack(reconstruction_targets))
+                if surival_data:
+                    duration, event = get_target(pd.DataFrame(surival_data))
+                    batch[modality]['survival_data'] = dict(duration=torch.from_numpy(duration),
+                                                            event=torch.from_numpy(event))
 
             return batch
 

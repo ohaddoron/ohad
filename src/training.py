@@ -8,6 +8,7 @@ from typing import Optional, List, Type
 import typing as tp
 import json
 
+from pycox.evaluation import EvalSurv
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 import pytorch_lightning as pl
@@ -28,8 +29,8 @@ from torch.nn import TripletMarginWithDistanceLoss, TripletMarginLoss
 from typer import Typer
 import warnings
 from torch.nn import functional as F
-from pycox.models import LogisticHazard, DeepHitSingle
-from pycox.models.loss import NLLLogistiHazardLoss
+from pycox.models import LogisticHazard, DeepHitSingle, BCESurv
+from pycox.models.loss import NLLLogistiHazardLoss, BCESurvLoss
 
 warnings.filterwarnings("ignore", category=UserWarning)
 app = Typer()
@@ -38,7 +39,7 @@ app = Typer()
 class GeneralConfig(BaseModel):
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'TCGAOmics'
-    mongodb_connection_string = "mongodb://TCGAManager:MongoDb-eb954cffde2cedf17b22b@localhost:27017/TCGAOmics?authSource=admin"
+    mongodb_connection_string = "mongodb://TCGAManager:MongoDb-eb954cffde2cedf17b22b@132.66.207.18:80/TCGAOmics?authSource=admin"
     OVERRIDE_ATTRIBUTES_FILE = True
     modality: str
     num_attributes: int = None
@@ -62,9 +63,10 @@ class GeneralConfig(BaseModel):
 class MultiOmicsGeneralConfig(BaseModel):
     DEBUG = getattr(sys, 'gettrace', None)() is not None
     DATABASE_CONFIG_NAME = 'TCGAOmics'
-    mongodb_connection_string = "mongodb://TCGAManager:MongoDb-eb954cffde2cedf17b22b@localhost:27017/TCGAOmics?authSource=admin"
+    mongodb_connection_string = "mongodb://TCGAManager:MongoDb-eb954cffde2cedf17b22b@132.66.207.18:80/TCGAOmics?authSource=admin"
     modalities: tp.List[str]
     num_attributes: tp.Dict[str, float] = None
+    num_durations: int = 20
 
     def __init__(self, modalities: tp.List[str], features: tp.Dict[str, tp.List[str]], *args, **kwargs):
         super().__init__(modalities=modalities, features=features, *args, **kwargs)
@@ -80,6 +82,7 @@ class MultiOmicsGeneralConfig(BaseModel):
 
 
 class MultiOmicsDataConfig(BaseModel):
+    debug: bool = False
     config_name: str
     batch_size: int = 16
     num_workers: int = None
@@ -91,11 +94,15 @@ class MultiOmicsDataConfig(BaseModel):
     standardization_values: tp.Dict[str, tp.Dict[str, float]] = None
     drop_rate: tp.Dict[str, float] = None
     drop_rate_base: float = 0.2
+    num_durations: int
 
     def __init__(self, debug: bool, *args, **kwargs):
-        super().__init__(**kwargs)
-        self.num_workers = 0 if debug else min(os.cpu_count(), 32)
+        super().__init__(debug=debug, **kwargs)
+        self.num_workers = 0 if debug else min(os.cpu_count(), 8)
         self.drop_rate = {modality: self.drop_rate_base for modality in self.modalities}
+
+    def __hash__(self):
+        return hash(repr(self.dict()))
 
 
 class AttributesFillerDataConfig(BaseModel):
@@ -140,11 +147,13 @@ class NetworkConfig(BaseModel):
 
 class MultiOmicsNetworkConfig(BaseModel):
     input_features: tp.Dict[str, float]
-    modality_model: tp.Dict[str, tp.List[LayerDef]] = dict()
-    embedding_size: int = 8
+    modality_model: tp.Dict[str, tp.Dict[str, LayerDef]] = dict()
+    embedding_size: int = 32
+    num_durations: int = None
+    regressor_config: dict = None
 
-    def __init__(self, input_features, *args, **kwargs):
-        super().__init__(input_features=input_features)
+    def __init__(self, input_features, num_durations: int, *args, **kwargs):
+        super().__init__(input_features=input_features, num_durations=num_durations)
 
         for modality in input_features.keys():
             self.modality_model[modality] = dict(
@@ -174,7 +183,23 @@ class MultiOmicsNetworkConfig(BaseModel):
                     )
                 ],
                 input_features=input_features[modality]
+
             )
+        self.regressor_config = dict(
+            layer_defs=[
+                LayerDef(
+                    hidden_dim=self.embedding_size,
+                    activation='ReLU',
+                    batch_norm=True
+                ),
+                LayerDef(
+                    hidden_dim=self.num_durations,
+                    activation=None,
+                    batch_norm=False
+                )
+            ],
+            input_features=self.embedding_size
+        )
 
 
 class AttributesFillerConfig(BaseModel):
@@ -191,12 +216,14 @@ class AttributesFillerConfig(BaseModel):
 
 class MultiOmicsModelConfig(BaseModel):
     reconstruction_loss_term: str = 'SmoothL1Loss'
-    network_config: dict = None
+    network_config: MultiOmicsNetworkConfig = None
+    num_durations: int = None
 
-    def __init__(self, input_features, *args, **kwargs):
-        super().__init__()
+    def __init__(self, input_features, num_durations, *args, **kwargs):
+        super().__init__(num_durations=num_durations)
         self.network_config = MultiOmicsNetworkConfig(
-            input_features=input_features
+            input_features=input_features,
+            num_durations=num_durations
         )
 
 
@@ -331,10 +358,12 @@ class MultiOmicsDataModule(pl.LightningDataModule):
                  batch_size=16,
                  num_workers: int = None,
                  standardization_values: dict = None,
+                 num_durations: int = None,
                  *args,
                  **kwargs
                  ):
         super().__init__()
+        self.num_durations = num_durations
         self.mongodb_connection_string = mongodb_connection_string
         self.db_name = db_name
         self.modalities = modalities
@@ -347,6 +376,21 @@ class MultiOmicsDataModule(pl.LightningDataModule):
             db_name=self.db_name,
             metadata_collection_name='metadata'
         ).values()
+
+        self.label_transformer = AttributesDataset.get_label_transformer(
+            mongodb_connection_string=mongodb_connection_string,
+            db_name=db_name,
+            patients=self.train_patients,
+            num_durations=num_durations)
+        if kwargs.get('debug') and standardization_values is None:
+            standardization_values = {}
+
+            standardization_values = {
+                modality: {feature_name: dict(min_value=0, max_value=1) for feature_name in
+                           MultiOmicsAttributesDataset.get_feature_names(
+                               mongodb_connection_string=self.mongodb_connection_string,
+                               db_name=self.db_name,
+                               modality=modality)} for modality in self.modalities}
         if standardization_values is None:
             self.standardization_values = {modality: MultiOmicsAttributesDataset.get_min_max_values(
                 mongodb_connection_string=self.mongodb_connection_string,
@@ -365,7 +409,7 @@ class MultiOmicsDataModule(pl.LightningDataModule):
                         modality=modality,
                         patients=self.train_patients)
         else:
-            raise TypeError('standadization_values must be of type dict')
+            raise TypeError('standardization_values must be of type dict')
 
         self.test_patients = MultiOmicsAttributesDataset.get_test_patients(
             mongodb_connection_string=self.mongodb_connection_string,
@@ -385,13 +429,15 @@ class MultiOmicsDataModule(pl.LightningDataModule):
                                          patients=self.train_patients,
                                          drop_rate=self.drop_rate,
                                          standardization_values=self.standardization_values,
+                                         num_durations=self.num_durations,
+                                         label_transformer=self.label_transformer
                                          )
 
         return DataLoader(
             dataset=ds,
             drop_last=True,
             batch_size=self.batch_size,
-            num_workers=self.num_workers or os.cpu_count(),
+            num_workers=self.num_workers if self.num_workers is not None else os.cpu_count(),
             shuffle=True,
             collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
@@ -403,13 +449,15 @@ class MultiOmicsDataModule(pl.LightningDataModule):
                                          patients=self.val_patients,
                                          drop_rate=self.drop_rate,
                                          standardization_values=self.standardization_values,
+                                         num_durations=self.num_durations,
+                                         label_transformer=self.label_transformer
                                          )
 
         return DataLoader(
             dataset=ds,
             drop_last=True,
             batch_size=self.batch_size,
-            num_workers=self.num_workers or os.cpu_count(),
+            num_workers=self.num_workers if self.num_workers is not None else os.cpu_count(),
             shuffle=False,
             collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
@@ -420,14 +468,16 @@ class MultiOmicsDataModule(pl.LightningDataModule):
                                          modalities=self.modalities,
                                          patients=self.test_patients,
                                          drop_rate=self.drop_rate,
-                                         standardization_values=self.standardization_values
+                                         standardization_values=self.standardization_values,
+                                         num_durations=self.num_durations,
+                                         label_transformer=self.label_transformer
                                          )
 
         return DataLoader(
             dataset=ds,
             drop_last=True,
             batch_size=self.batch_size,
-            num_workers=self.num_workers or os.cpu_count(),
+            num_workers=self.num_workers if self.num_workers is not None else os.cpu_count(),
             shuffle=False,
             collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(self.modalities)
         )
@@ -479,8 +529,12 @@ class MultiOmicsModel(pl.LightningModule):
             for key in ['encoder_layer_defs', 'decoder_layer_defs']:
                 config[key] = [LayerDef(**item) if isinstance(item, dict) else item for item in config[key]]
             self.nets[modality] = AutoEncoder(**config)
+        network_config['regressor_config']['layer_defs'] = [LayerDef(**conf) for conf in
+                                                            network_config['regressor_config']['layer_defs']]
+        self.surv_model = MLP(**network_config['regressor_config'])
+        self.surv_loss = NLLLogistiHazardLoss()
 
-        self.logistic_hazard_model = LogisticHazard(net=self.nets, loss=NLLLogistiHazardLoss(reduction='mean'))
+        self.logistic_hazard_model = LogisticHazard(net=self.surv_model, loss=self.surv_loss)
         self.reconstruction_loss_term = reconstruction_loss_term
         self.triplet_loss_term = TripletMarginWithDistanceLoss(
             distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y), margin=0.2)
@@ -491,6 +545,7 @@ class MultiOmicsModel(pl.LightningModule):
     def configure_optimizers(self):
         opts = [torch.optim.Adam(net.parameters(), lr=1e-3)
                 for modality, net in self.nets.items()]
+        opts += [torch.optim.Adam(self.surv_model.parameters(), lr=5e-4)]
         return opts
 
     def step(self, batch: dict, phase: str = 'train'):
@@ -499,6 +554,10 @@ class MultiOmicsModel(pl.LightningModule):
             max([max(batch[modality]['idx']) for modality in self.nets.keys()]) + 1, 3,
             self.hparams.network_config['embedding_size']).to(
             self.device)
+        surv_embeddings = torch.empty(0, self.hparams.network_config['embedding_size']).to(self.device)
+        surv_embeddings.requires_grad = True
+        durations = []
+        events = []
 
         reconstruction_loss = torch.tensor(0.).to(self.device)
 
@@ -519,15 +578,35 @@ class MultiOmicsModel(pl.LightningModule):
             reconstruction_loss += rec_loss
 
             embeddings = net_outputs['aux']
-            for idx, triplet_kind, embedding in zip(batch[modality]['idx'], batch[modality]['triplet_kind'],
-                                                    embeddings):
+            for idx, triplet_kind, embedding in zip(
+                    batch[modality]['idx'],
+                    batch[modality]['triplet_kind'],
+                    embeddings
+            ):
                 embedding_place_holder[idx, self.triplet_kinds.index(triplet_kind)] = embedding
+            surv_embeddings = torch.concat((surv_embeddings, embeddings.detach()))
+            durations.append(batch[modality]['survival_data']['duration'])
+            events.append(batch[modality]['survival_data']['event'])
 
+        durations = torch.concat(durations)
+        events = torch.concat(events)
+
+        surv_prediction = self.surv_model(surv_embeddings)
+
+        surv_loss = self.surv_loss(surv_prediction, durations, events)
+        ev = EvalSurv(self.logistic_hazard_model.predict_surv_df(surv_embeddings), durations.cpu().numpy(),
+                      events.cpu().numpy(), censor_surv='km')
+        concordance_td = ev.concordance_td()
+        time_grid = np.linspace(durations.cpu().min(), durations.cpu().max(), 100)
+        integrated_brier_score = ev.integrated_brier_score(time_grid=time_grid)
         triplet_loss = self.triplet_loss_term(
             embedding_place_holder[:, 0], embedding_place_holder[:, 1], embedding_place_holder[:, 2])
         self.log(f'{phase}/reconstruction_loss', reconstruction_loss, prog_bar=True, on_step=phase == 'train')
         self.log(f'{phase}/triplet_loss', triplet_loss, prog_bar=True, on_step=phase == 'train')
-        return triplet_loss + reconstruction_loss
+        self.log(f'{phase}/surv_loss', surv_loss, prog_bar=True, on_step=phase == 'train')
+        self.log(f'{phase}/concordance_td', concordance_td, prog_bar=True, on_step=phase == 'train')
+        self.log(f'{phase}/integrated_brier_score', integrated_brier_score, prog_bar=True, on_step=phase == 'train')
+        return triplet_loss + reconstruction_loss + surv_loss
 
     def forward(self, x: torch.Tensor, modality: str) -> tp.Dict[str, torch.Tensor]:
         return self.nets[modality](x, return_aux=True)
@@ -554,9 +633,11 @@ def train_attributes_filler(modality: str = typer.Option(...),
         feature_set = None
 
     general_config = GeneralConfig(modality=modality, features=feature_set)
-
-    wandb_logger = WandbLogger(
-        project="AttributeFiller", log_model=True, name=general_config.modality)
+    if not general_config.DEBUG:
+        lightning_logger = WandbLogger(
+            project="AttributeFiller", log_model=True, name=general_config.modality)
+    else:
+        lightning_logger = None
 
     data_config = AttributesFillerDataConfig(config_name=general_config.DATABASE_CONFIG_NAME,
                                              batch_size=batch_size,
@@ -575,11 +656,12 @@ def train_attributes_filler(modality: str = typer.Option(...),
         **attributes_filler_config.dict(), **data_config.dict())
     dm = AttributesFillerDataModule(**data_config.dict())
 
-    wandb_logger.watch(model)
-    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger,
+    lightning_logger.watch(model)
+    trainer = pl.Trainer(**trainer_config.dict(), logger=lightning_logger,
                          callbacks=[
                              ModelCheckpoint(
-                                 dirpath=Path(wandb_logger.experiment.settings.sync_dir).joinpath('files').as_posix(),
+                                 dirpath=Path(lightning_logger.experiment.settings.sync_dir).joinpath(
+                                     'files').as_posix(),
                                  every_n_epochs=10,
                                  filename=f'{modality}-attribute-model'
                              )
@@ -594,6 +676,10 @@ def get_modality_min_max_values(modality):
         Path(__file__).parent.joinpath(f'../resources/{modality}_min_max_values.json').open().read())}
 
 
+def init_data_module(data_config: MultiOmicsDataConfig):
+    return MultiOmicsDataModule(**data_config.dict())
+
+
 @app.command()
 def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DNAm', 'miRNA']),
                             gpus: int = typer.Option(0),
@@ -604,13 +690,6 @@ def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DN
         modalities=modalities,
     )
 
-    wandb_logger = WandbLogger(
-        project="MultiOmics",
-        log_model=True,
-        name='-'.join(sorted(general_config.modalities)),
-        save_dir=pl.Trainer().default_root_dir
-    )
-
     data_config = MultiOmicsDataConfig(config_name=general_config.DATABASE_CONFIG_NAME,
                                        batch_size=batch_size,
                                        modalities=modalities,
@@ -618,31 +697,46 @@ def train_multi_omics_model(modalities: tp.List[str] = typer.Option(['mRNA', 'DN
                                        mongodb_connection_string=general_config.mongodb_connection_string,
                                        db_name=general_config.DATABASE_CONFIG_NAME,
                                        debug=general_config.DEBUG,
-                                       # standardization_values={modality: get_modality_min_max_values(
-                                       #     modality=modality) for modality in modalities},
+                                       num_durations=general_config.num_durations,
+
                                        )
 
     # trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
     trainer_config = TrainerConfig(debug=general_config.DEBUG, gpus=[gpus])
     multi_omics_model_config = MultiOmicsModelConfig(
-        input_features=general_config.num_attributes)
+        input_features=general_config.num_attributes,
+        num_durations=general_config.num_durations
+    )
 
     model = MultiOmicsModel(
         **multi_omics_model_config.dict(),
         data_config=data_config.dict()
     )
+    callbacks = []
+    if not general_config.DEBUG:
+        lightning_logger = WandbLogger(
+            project="MultiOmics",
+            log_model=True,
+            name='-'.join(sorted(general_config.modalities)),
+            save_dir=pl.Trainer().default_root_dir
+        )
+        lightning_logger.watch(model)
+        callbacks.append(
+            ModelCheckpoint(
+                dirpath=Path(lightning_logger.experiment.settings.sync_dir).joinpath(
+                    'files').as_posix(),
+                every_n_epochs=10,
+                filename='multi-omics-model'
+            )
+        )
 
-    wandb_logger.watch(model)
-    dm = MultiOmicsDataModule(**data_config.dict())
-    trainer = pl.Trainer(**trainer_config.dict(), logger=wandb_logger,
-                         callbacks=[
-                             ModelCheckpoint(
-                                 dirpath=Path(wandb_logger.experiment.settings.sync_dir).joinpath('files').as_posix(),
-                                 every_n_epochs=10,
-                                 filename='multi-omics-model'
-                             )
-                         ]
+    else:
+        lightning_logger = None
+
+    trainer = pl.Trainer(**trainer_config.dict(), logger=lightning_logger,
+                         callbacks=callbacks
                          )
+    dm = init_data_module(data_config=data_config)
 
     trainer.fit(model, dm)
 
@@ -657,9 +751,9 @@ def restore(run_path: str = typer.Option(..., help='wandb run id to restore the 
     model.freeze()
 
     data_config = MultiOmicsDataConfig(**ckpt['hyper_parameters']['data_config'], debug=debug)
-    dm = MultiOmicsDataModule(**data_config.dict())
-    trainer = pl.Trainer(**TrainerConfig(debug=debug, enable_checkpointing=False).dict())
 
+    trainer = pl.Trainer(**TrainerConfig(debug=debug, enable_checkpointing=False).dict())
+    dm = init_data_module(data_config=data_config)
     trainer.test(model, dm.train_dataloader())
 
 

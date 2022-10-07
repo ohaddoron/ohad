@@ -16,8 +16,7 @@ class MLP(nn.Module):
 
         for layer_def in layer_defs:
             if layer_def.layer_type == 'Linear':
-                layers.append(getattr(nn, layer_def.layer_type)
-                              (last_layer_dim, layer_def.hidden_dim))
+                layers.append(getattr(nn, layer_def.layer_type)(last_layer_dim, layer_def.hidden_dim))
             else:
                 layers.append(getattr(nn, layer_def.layer_type)
                               (**layer_def.params))
@@ -134,7 +133,7 @@ class MultiHeadAutoEncoderRegressor(AutoEncoder):
         out = super().forward(x, return_aux=True)
 
         out['aux'] = out['aux'] / \
-            torch.norm(out['aux'], p=2, dim=1).unsqueeze(1)
+                     torch.norm(out['aux'], p=2, dim=1).unsqueeze(1)
 
         regression_out = self.regressor(out['aux'])
         return dict(encoder=out['aux'], autoencoder=out['out'], regression=regression_out)
