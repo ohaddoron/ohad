@@ -1,7 +1,0 @@
-dropout: 0.
-batch_norm: true
-num_nodes: 32
-activation: ReLU
-
-
-

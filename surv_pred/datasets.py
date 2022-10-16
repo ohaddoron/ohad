@@ -35,8 +35,16 @@ def connect_to_database(mongodb_connection_string: str, db_name: str) -> Databas
 
 
 class ModalitiesDataset(Dataset, ABC):
-    def __init__(self, modality: str, patients: tp.List[str], db_params: dict,
-                 labtrans: CoxTime.label_transform = None, scaler: StandardScaler = None):
+    def __init__(self,
+                 modality: str,
+                 patients: tp.List[str],
+                 db_params: dict,
+                 labtrans: CoxTime.label_transform = None,
+                 scaler: StandardScaler = None,
+                 max_survival_duration: float = 32,
+                 survival_resolution: int = 100,
+
+                 ):
         self._db_params = db_params
 
         self.patients = list(set(patients))
@@ -55,13 +63,15 @@ class ModalitiesDataset(Dataset, ABC):
         self._scaler = self.get_scaler(scaler)
         logger.info('Data standardized')
 
+        self.survival_array = np.linspace(0, max_survival_duration, survival_resolution)
+
     @property
     def labtrans(self):
         return self._labtrans
 
     def transform_survival_data(self, labtrans: CoxTime.label_transform):
         if labtrans is None:
-            labtrans = CoxTime.label_transform()
+            labtrans = CoxTime.label_transform(with_mean=False, with_std=False)
             labtrans.fit_transform(
                 durations=np.array(list(map(lambda x: x['duration'], self.survival_data_raw))),
                 events=np.array(list(map(lambda x: x['event'], self.survival_data_raw)))
@@ -125,12 +135,18 @@ class ModalitiesDataset(Dataset, ABC):
 
     def __getitem__(self, item):
         patient = self.patients[item]
+        surv_data = next(filter(lambda x: x['patient'] == patient, self.survival_data))
+
+        event_index = np.searchsorted(self.survival_array, surv_data['duration']) + 1
+        surv_fn = np.ones(len(self.survival_array), dtype=np.float32)
+        if surv_data['event'] == 1.:
+            surv_fn[event_index:] = 0.
 
         return dict(
             features=self.scaler.transform(pd.DataFrame(self.data.loc[patient]).T).squeeze().astype(np.float32),
-            **next(filter(lambda x: x['patient'] == patient, self.survival_data))
-
-        )
+            surv_fn=surv_fn,
+            event_index=event_index,
+            **surv_data)
 
     def __len__(self):
         return len(self.patients)

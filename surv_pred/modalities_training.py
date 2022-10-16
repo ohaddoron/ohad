@@ -6,9 +6,11 @@ import numpy as np
 import pandas as pd
 import pycox
 import torchtuples as tt
+import wandb
 from pycox.evaluation.concordance import concordance_td
+from torch.nn.functional import nll_loss, mse_loss
 
-from surv_pred.models import MLPVanilla
+from surv_pred.models import MLPVanilla, SurvMLP
 from surv_pred.utils import concordance_index
 import lifelines
 import torch
@@ -167,9 +169,7 @@ class ModalitiesModel(LightningModule):
         super().__init__()
         self.save_hyperparameters(params)
 
-        self.model: CoxTime = CoxTime(net=MLPVanilla(**self.hparams.net_params),
-                                      device=torch.device(f'cuda:{device}'))
-        self.net = self.model.net
+        self.net = SurvMLP(**self.hparams.net_params)
 
     def prepare_data(self) -> None:
         return
@@ -184,23 +184,22 @@ class ModalitiesModel(LightningModule):
         return self.step(batch, purpose='test')
 
     def step(self, batch, purpose):
-        compute_baseline_hazards(self, batch)
+        features, durations, events, surv_fns, event_indices = batch['features'], batch['duration'], batch['event'], \
+                                                               batch['surv_fn'], batch['event_index']
 
-        features, durations, events = batch['features'], batch['duration'].unsqueeze(1), batch['event'].unsqueeze(1)
+        surv_outputs, interm_out = self(features)
+        loss: torch.Tensor = torch.tensor(0.).type_as(features)
+        for surv_out, surv_fn, event, event_ind in zip(surv_outputs, surv_fns, events, event_indices):
+            if event == 0:
+                surv_fn = surv_fn[:event_ind]
+                surv_out = surv_out[:event_ind]
+            loss += mse_loss(surv_out, surv_fn)
+        loss /= len(surv_outputs)
 
-        out = self(features, durations)
-        loss = self.model.loss(out, durations)
-        # ev = MyEvalSurv(surv=self.model.predict_surv_df(features.detach()),
-        #                 durations=durations.cpu().squeeze().numpy(),
-        #                 events=events.squeeze().cpu().numpy(),
-        #                 censor_surv='km')
-        #
-        # concordance_td = ev.concordance_td()
-        # time_grid = np.linspace(durations.cpu().min(), durations.cpu().max(), 100)
-        # integrated_brier_score = ev.integrated_brier_score(time_grid=time_grid)
-
-        concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(), out.detach().cpu().numpy(),
-                                                              event_observed=events.cpu().numpy())
+        concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(),
+                                                              (surv_outputs >= 0.01).sum(dim=1).detach().cpu().numpy(),
+                                                              event_observed=events.cpu().numpy()
+                                                              )
 
         log_dict = {
             f'{purpose}/loss': loss,
@@ -211,17 +210,17 @@ class ModalitiesModel(LightningModule):
         return {'loss': loss, **log_dict}
 
     def configure_optimizers(self):
-        return AdamW(params=self.model.net.parameters(), lr=5e-4)
+        return AdamW(params=self.net.parameters(), lr=5e-4)
 
-    def forward(self, x, durations) -> tp.Any:
-        return self.model.predict_net((x, durations), eval_=False, grads=True)
+    def forward(self, x) -> tp.Any:
+        return self.net(x)
 
 
 def compute_baseline_hazards(model: ModalitiesModel, batch):
     sorting_ind = torch.argsort(batch['duration'])
     features, durations, events = batch['features'][sorting_ind], batch['duration'][sorting_ind], batch['event'][
         sorting_ind]
-    model.model.compute_baseline_hazards(input=features, target=(durations, events), max_duration=50)
+    model.net.compute_baseline_hazards(input=features, target=(durations, events), max_duration=50)
     return model
 
 
@@ -237,6 +236,7 @@ def main(config: DictConfig):
                                 name=config.modality.experiment_name,
                                 log_model=config.log_model
                                 )
+        # wandb.run.log_code('.')
 
     dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality.modality)
 

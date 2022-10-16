@@ -9,6 +9,8 @@ test_patients: ???
 batch_size: 32
 project: MOSP
 debug: false
+max_survival_duration: 32
+survival_resolution: 100
 early_stop_monitor:
   monitor: val/concordance_index
   mode: max
