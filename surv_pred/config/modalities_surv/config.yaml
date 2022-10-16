@@ -14,5 +14,5 @@ survival_resolution: 100
 early_stop_monitor:
   monitor: val/concordance_index
   mode: max
-  patience: 20
+  patience: 3
 

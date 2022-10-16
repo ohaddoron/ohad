@@ -1,5 +1,5 @@
 defaults:
-  - net_params: surv_mlp
+  - base
 
 net_params:
   in_features: 5153

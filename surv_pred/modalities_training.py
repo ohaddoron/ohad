@@ -4,21 +4,18 @@ import typing as tp
 
 import numpy as np
 import pandas as pd
-import pycox
+
 import torchtuples as tt
 import wandb
-from pycox.evaluation.concordance import concordance_td
-from torch.nn.functional import nll_loss, mse_loss
+
+from torch.nn.functional import nll_loss, mse_loss, binary_cross_entropy
 
 from surv_pred.models import MLPVanilla, SurvMLP
 from surv_pred.utils import concordance_index
 import lifelines
 import torch
 import typer
-from pycox.evaluation import EvalSurv
-from pycox.models import CoxTime, LogisticHazard
-from pycox.models.cox_time import MLPVanillaCoxTime
-from pycox.models.loss import NLLLogistiHazardLoss
+
 from pymongo import MongoClient
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping
@@ -26,16 +23,14 @@ from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional as F, BCELoss
 from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 from typer import Typer
 from surv_pred.datasets import ModalitiesDataset
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from pycox.evaluation.admin import brier_score
-from pycox.evaluation.concordance import concordance_td
-
+    
 CONFIG = {
     'dataset_params':
         {
@@ -153,17 +148,6 @@ class ModalitiesDataModule(LightningDataModule):
         return dict(train=self.train_patients, val=self.val_patients, test=self.test_patients)
 
 
-class MyEvalSurv(EvalSurv):
-    def add_km_censor(self, steps='post'):
-        """Add censoring estimates obtained by Kaplan-Meier on the test set
-        (durations, 1-events).
-        """
-        km = pycox.utils.kaplan_meier(self.durations, 1 - self.events, start_duration=min(self.durations))
-        surv = pd.DataFrame(np.repeat(km.values.reshape(-1, 1), len(self.durations), axis=1),
-                            index=km.index)
-        return self.add_censor_est(surv, steps)
-
-
 class ModalitiesModel(LightningModule):
     def __init__(self, params: dict, device: int):
         super().__init__()
@@ -189,12 +173,15 @@ class ModalitiesModel(LightningModule):
 
         surv_outputs, interm_out = self(features)
         loss: torch.Tensor = torch.tensor(0.).type_as(features)
+        brier_score: torch.Tensor = torch.tensor(0.).type_as(features)
         for surv_out, surv_fn, event, event_ind in zip(surv_outputs, surv_fns, events, event_indices):
             if event == 0:
                 surv_fn = surv_fn[:event_ind]
                 surv_out = surv_out[:event_ind]
-            loss += mse_loss(surv_out, surv_fn)
+            loss += getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn)
+            brier_score += torch.mean((surv_fn - surv_out) ** 2)
         loss /= len(surv_outputs)
+        brier_score /= len(surv_outputs)
 
         concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(),
                                                               (surv_outputs >= 0.01).sum(dim=1).detach().cpu().numpy(),
@@ -203,7 +190,8 @@ class ModalitiesModel(LightningModule):
 
         log_dict = {
             f'{purpose}/loss': loss,
-            f'{purpose}/concordance_index': concordance_index
+            f'{purpose}/concordance_index': concordance_index,
+            f'{purpose}/brier_score': brier_score
         }
         self.log_dict(log_dict, prog_bar=True)
 
@@ -236,7 +224,6 @@ def main(config: DictConfig):
                                 name=config.modality.experiment_name,
                                 log_model=config.log_model
                                 )
-        # wandb.run.log_code('.')
 
     dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality.modality)
 
