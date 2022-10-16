@@ -6,7 +6,7 @@ def concordance_index(event_times, predicted_scores, event_observed=None):
     Calculates the concordance index (C-index) between two series
     of event times. The first is the real survival times from
     the experimental data, and the other is the predicted survival
-    times from a model of some kind.
+    times from a modality of some kind.
     The concordance index is a value between 0 and 1 where,
     0.5 is the expected result from random predictions,
     1.0 is perfect concordance and,

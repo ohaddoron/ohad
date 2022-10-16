@@ -35,7 +35,7 @@ def connect_to_database(mongodb_connection_string: str, db_name: str) -> Databas
 
 
 class ModalitiesDataset(Dataset, ABC):
-    def __init__(self, modality: str, patients: tp.List[str], db_params: dict, feature_names=None,
+    def __init__(self, modality: str, patients: tp.List[str], db_params: dict,
                  labtrans: CoxTime.label_transform = None, scaler: StandardScaler = None):
         self._db_params = db_params
 

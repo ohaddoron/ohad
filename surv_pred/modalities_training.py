@@ -1,8 +1,14 @@
 import os
+import tempfile
 import typing as tp
 
+import numpy as np
+import pandas as pd
+import pycox
+import torchtuples as tt
 from pycox.evaluation.concordance import concordance_td
 
+from surv_pred.models import MLPVanilla
 from surv_pred.utils import concordance_index
 import lifelines
 import torch
@@ -14,29 +20,26 @@ from pycox.models.loss import NLLLogistiHazardLoss
 from pymongo import MongoClient
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.nn import functional as F
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from torch.utils.data import DataLoader
 from typer import Typer
 from surv_pred.datasets import ModalitiesDataset
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from pycox.evaluation.admin import brier_score
+from pycox.evaluation.concordance import concordance_td
 
-app = Typer()
-
-INPUT_NODES = dict(
-    mRNA=5000,
-    miRNA=1876,
-    DNAm=5153
-)
 CONFIG = {
     'dataset_params':
         {
 
             'modality': 'miRNA',
-           
+
         },
 
     'mlp_params': {'in_features': 1876, 'num_nodes': (32, 32), 'batch_norm': True,
@@ -46,7 +49,7 @@ CONFIG = {
 
 
 class ModalitiesDataModule(LightningDataModule):
-    def __init__(self, batch_size: int, dataset_params: dict, **kwargs):
+    def __init__(self, batch_size: int, dataset_params: dict, modality: str, **kwargs):
         super().__init__()
         self.batch_size = batch_size
         self.dataset_params = dataset_params
@@ -90,12 +93,13 @@ class ModalitiesDataModule(LightningDataModule):
             _patients = col.find({'split': 'train'}).distinct('patient')
 
         patients_in_modality = set(
-            self.get_patients_in_modality(**dataset_params['db_params'], modality=dataset_params['modality']))
+            self.get_patients_in_modality(**dataset_params['db_params'], modality=modality))
         _patients = list(set(_patients).intersection(set(patients_in_modality)))
         self.train_patients, self.val_patients = train_test_split(_patients, test_size=0.1)
 
         self.test_patients = list(
             set(col.find({'split': 'test'}).distinct('patient')).intersection(patients_in_modality))
+        self.modality = modality
         # self.test_patients = self.val_patients
 
     def get_patients_in_modality(self, mongodb_connection_string: str, db_name: str, modality: str):
@@ -104,14 +108,14 @@ class ModalitiesDataModule(LightningDataModule):
             return col.distinct('patient')
 
     def setup(self, stage: tp.Optional[str] = None) -> None:
-        self.train_dataset = ModalitiesDataset(patients=self.train_patients, **self.dataset_params)
-        self.val_dataset = ModalitiesDataset(patients=self.val_patients, **self.dataset_params,
-                                             feature_names=self.train_dataset.feature_names,
+        self.train_dataset = ModalitiesDataset(patients=self.train_patients, modality=self.modality,
+                                               **self.dataset_params)
+        self.val_dataset = ModalitiesDataset(patients=self.val_patients, modality=self.modality, **self.dataset_params,
                                              labtrans=self.train_dataset.labtrans,
                                              scaler=self.train_dataset.scaler
                                              )
-        self.test_dataset = ModalitiesDataset(patients=self.test_patients, **self.dataset_params,
-                                              feature_names=self.train_dataset.feature_names,
+        self.test_dataset = ModalitiesDataset(patients=self.test_patients, modality=self.modality,
+                                              **self.dataset_params,
                                               labtrans=self.train_dataset.labtrans,
                                               scaler=self.train_dataset.scaler
                                               )
@@ -121,7 +125,8 @@ class ModalitiesDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=os.cpu_count() // 3
+            num_workers=os.cpu_count() // 3,
+            multiprocessing_context='fork'
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -129,7 +134,8 @@ class ModalitiesDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=len(self.val_dataset),
             shuffle=False,
-            num_workers=os.cpu_count() // 3
+            num_workers=os.cpu_count() // 3,
+            multiprocessing_context='fork'
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -145,16 +151,25 @@ class ModalitiesDataModule(LightningDataModule):
         return dict(train=self.train_patients, val=self.val_patients, test=self.test_patients)
 
 
+class MyEvalSurv(EvalSurv):
+    def add_km_censor(self, steps='post'):
+        """Add censoring estimates obtained by Kaplan-Meier on the test set
+        (durations, 1-events).
+        """
+        km = pycox.utils.kaplan_meier(self.durations, 1 - self.events, start_duration=min(self.durations))
+        surv = pd.DataFrame(np.repeat(km.values.reshape(-1, 1), len(self.durations), axis=1),
+                            index=km.index)
+        return self.add_censor_est(surv, steps)
+
+
 class ModalitiesModel(LightningModule):
     def __init__(self, params: dict, device: int):
         super().__init__()
         self.save_hyperparameters(params)
-        self.save_hyperparameters()
-        self.model: CoxTime = CoxTime(net=MLPVanillaCoxTime(**self.hparams.mlp_params),
-                                      device=torch.device(f'cuda:{self.hparams.device}'))
-        self.net = self.model.net
 
-        params.update({'patients': self.hparams.patients})
+        self.model: CoxTime = CoxTime(net=MLPVanilla(**self.hparams.net_params),
+                                      device=torch.device(f'cuda:{device}'))
+        self.net = self.model.net
 
     def prepare_data(self) -> None:
         return
@@ -169,26 +184,27 @@ class ModalitiesModel(LightningModule):
         return self.step(batch, purpose='test')
 
     def step(self, batch, purpose):
+        compute_baseline_hazards(self, batch)
+
         features, durations, events = batch['features'], batch['duration'].unsqueeze(1), batch['event'].unsqueeze(1)
 
         out = self(features, durations)
-
-        self.model.compute_baseline_hazards(input=features, target=(durations.squeeze(), events.squeeze()))
-
         loss = self.model.loss(out, durations)
-        concordance_td(durations=durations.detach().cpu().numpy(),
-                       events=events.detach().cpu().numpy(),
-                       surv=out.detach().cpu().numpy().T)
-        concordance_index_ = lifelines.utils.concordance_index(
-            event_times=durations.detach().cpu().numpy(),
-            predicted_scores=out.detach().cpu().numpy(),
-            event_observed=events.detach().cpu().numpy()
-        )
+        # ev = MyEvalSurv(surv=self.model.predict_surv_df(features.detach()),
+        #                 durations=durations.cpu().squeeze().numpy(),
+        #                 events=events.squeeze().cpu().numpy(),
+        #                 censor_surv='km')
+        #
+        # concordance_td = ev.concordance_td()
+        # time_grid = np.linspace(durations.cpu().min(), durations.cpu().max(), 100)
+        # integrated_brier_score = ev.integrated_brier_score(time_grid=time_grid)
+
+        concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(), out.detach().cpu().numpy(),
+                                                              event_observed=events.cpu().numpy())
 
         log_dict = {
             f'{purpose}/loss': loss,
-            # f'{purpose}/integrated_brier_score': torch.mean((self.model.predict_surv(features) - events) ** 2),
-            f'{purpose}/concordance_index': concordance_index_
+            f'{purpose}/concordance_index': concordance_index
         }
         self.log_dict(log_dict, prog_bar=True)
 
@@ -201,24 +217,44 @@ class ModalitiesModel(LightningModule):
         return self.model.predict_net((x, durations), eval_=False, grads=True)
 
 
-@app.command()
-def main(modality: str, gpu: int = 0, num_features: int = None):
-    CONFIG['dataset_params'].update({'modality': modality})
-    CONFIG['mlp_params'].update({'in_features': num_features or INPUT_NODES[modality]})
+def compute_baseline_hazards(model: ModalitiesModel, batch):
+    sorting_ind = torch.argsort(batch['duration'])
+    features, durations, events = batch['features'][sorting_ind], batch['duration'][sorting_ind], batch['event'][
+        sorting_ind]
+    model.model.compute_baseline_hazards(input=features, target=(durations, events), max_duration=50)
+    return model
 
-    wandb_logger = WandbLogger(name=f'{modality}-surv-pred',
-                               log_model=True
-                               )
 
-    dm = ModalitiesDataModule(**CONFIG)
-    CONFIG.update(dict(patients=dm.patients))
-    model = ModalitiesModel(params=CONFIG, device=gpu)
-    trainer = Trainer(gpus=[gpu],
-                      logger=wandb_logger,
-                      callbacks=[EarlyStopping(monitor='val/concordance_index', mode='max', patience=20)]
+@hydra.main(version_base=None, config_path='config/modalities_surv', config_name='config')
+def main(config: DictConfig):
+    if config.debug:
+        ml_logger = TensorBoardLogger(save_dir=tempfile.gettempdir(),
+                                      name=config.modality.experiment_name
+                                      )
+
+    else:
+        ml_logger = WandbLogger(project=config.project,
+                                name=config.modality.experiment_name,
+                                log_model=config.log_model
+                                )
+
+    dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality.modality)
+
+    print(OmegaConf.to_yaml(config))
+
+    config.train_patients = dm.train_patients
+    config.val_patients = dm.val_patients
+    config.test_patients = dm.test_patients
+
+    model = ModalitiesModel(params=dict(config.modality),
+                            device=config.modality.gpu)
+
+    trainer = Trainer(gpus=[config.modality.gpu],
+                      logger=ml_logger,
+                      callbacks=[EarlyStopping(**config.early_stop_monitor)]
                       )
     trainer.fit(model, datamodule=dm)
 
 
 if __name__ == '__main__':
-    app()
+    main()

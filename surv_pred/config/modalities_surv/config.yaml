@@ -1,0 +1,16 @@
+defaults:
+  - modality: ???
+  - db: mongo
+  - override hydra/launcher: joblib
+log_model: true
+train_patients: ???
+val_patients: ???
+test_patients: ???
+batch_size: 32
+project: MOSP
+debug: false
+early_stop_monitor:
+  monitor: val/concordance_index
+  mode: max
+  patience: 20
+

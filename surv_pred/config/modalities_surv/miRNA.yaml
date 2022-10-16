@@ -1,0 +1,10 @@
+defaults:
+  - base
+  - _self_
+net_params:
+  in_features: 1876
+
+modality: miRNA
+gpu: 4
+
+experiment_name: miRNA
