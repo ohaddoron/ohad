@@ -1,8 +1,9 @@
-dropout: 0.
+dropout: 0.2
 batch_norm: true
 hidden_nodes: [ 32, 32 ]
 activation: ReLU
 survival_output_resolution: 100
+
 
 
 

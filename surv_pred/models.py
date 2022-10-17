@@ -8,7 +8,8 @@ import torchtuples as tt
 
 
 class DenseBlock(nn.Module):
-    def __init__(self, in_features: int, out_features: int, activation: str, activation_params=None):
+    def __init__(self, in_features: int, out_features: int, activation: str, activation_params=None,
+                 dropout_rate: float = 0.):
         super(DenseBlock, self).__init__()
         if activation_params is None:
             activation_params = {}
@@ -16,9 +17,10 @@ class DenseBlock(nn.Module):
         self.activation = getattr(nn, activation)(**activation_params)
 
         self.linear = nn.Linear(in_features=in_features, out_features=out_features)
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
-        return self.activation(self.bn(self.linear(x)))
+        return self.activation(self.bn(self.linear(self.dropout(x))))
 
 
 def convert_predictions_to_survival_prediction(surv_output: torch.Tensor):
@@ -33,6 +35,7 @@ class SurvMLP(nn.Module):
                  hidden_nodes: tp.Union[int, tp.List[int], tp.Tuple[int]],
                  survival_output_resolution: int = 100,
                  activation: str = 'ReLU',
+                 dropout: float = 0.,
                  **kwargs
                  ):
         super(SurvMLP, self).__init__()
@@ -48,11 +51,13 @@ class SurvMLP(nn.Module):
             self.layers.append(DenseBlock(in_features=num_units_pre,
                                           out_features=num_units_post,
                                           activation=activation,
+                                          dropout_rate=dropout
                                           )
                                )
         self.survival_layer = DenseBlock(in_features=nodes[-1],
                                          out_features=survival_output_resolution,
-                                         activation='Softmax')
+                                         activation='Softmax',
+                                         dropout_rate=dropout)
 
     def forward(self, x):
         interm_output = [x]

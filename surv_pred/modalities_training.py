@@ -30,7 +30,7 @@ from typer import Typer
 from surv_pred.datasets import ModalitiesDataset
 import hydra
 from omegaconf import DictConfig, OmegaConf
-    
+
 CONFIG = {
     'dataset_params':
         {
@@ -238,7 +238,8 @@ def main(config: DictConfig):
 
     trainer = Trainer(gpus=[config.modality.gpu],
                       logger=ml_logger,
-                      callbacks=[EarlyStopping(**config.early_stop_monitor)]
+                      callbacks=[EarlyStopping(**config.early_stop_monitor)],
+                      limit_train_batches=0.2
                       )
     trainer.fit(model, datamodule=dm)
 
