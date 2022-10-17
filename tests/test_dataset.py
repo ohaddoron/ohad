@@ -115,7 +115,7 @@ def setup_database():
         with pymongo.MongoClient() as client:
             for file in [Path(__file__).parent.joinpath('../resources/miRNA.json'),
                          Path(__file__).parent.joinpath('../resources/mRNA.json'),
-                         Path(__file__).parent.joinpath('../resources/DNAm.json'),
+                         Path(__file__).parent.joinpath('../resources/DNAm.yaml.json'),
                          Path(__file__).parent.joinpath('../resources/metadata.json'),
                          Path(__file__).parent.joinpath('../resources/survival.json')]:
                 with file.open() as f:
@@ -187,28 +187,29 @@ class TestMultiOmicsAttributesDataset:
 
         ds = MultiOmicsAttributesDataset(mongodb_connection_string='mongodb://localhost:27017',
                                          db_name='TCGA',
-                                         modalities=['miRNA', 'DNAm', 'mRNA'],
+                                         modalities=['miRNA', 'DNAm.yaml', 'mRNA'],
                                          patients=None,
-                                         features={'miRNA': None, 'DNAm': None,
+                                         features={'miRNA': None, 'DNAm.yaml': None,
                                                    'mRNA': json.load(
                                                        Path(__file__).parent.joinpath(
                                                            '../resources/mRNA-features.json').open())},
-                                         drop_rate={'miRNA': 0.2, 'DNAm': 0.2, 'mRNA': 0.2}
+                                         drop_rate={'miRNA': 0.2, 'DNAm.yaml': 0.2, 'mRNA': 0.2}
                                          )
         item = ds[0]
         assert isinstance(item, list)
         assert len(item) == 3
         assert all([
-            'modality' in item_.keys() and 'inputs' in item_.keys() and 'patient' in item_.keys() and 'outputs' in item_.keys()
+            'modality_update' in item_.keys() and 'inputs' in item_.keys() and 'patient' in item_.keys() and 'outputs' in item_.keys()
             for item_ in item])
 
         dl = DataLoader(ds,
                         num_workers=0,
                         batch_size=2,
-                        collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(modalities=['miRNA', 'DNAm', 'mRNA']))
+                        collate_fn=MultiOmicsAttributesDataset.batch_collate_fn(
+                            modalities=['miRNA', 'DNAm.yaml', 'mRNA']))
         item = next(iter(dl))
         assert isinstance(item, dict)
-        assert {'miRNA', 'DNAm', 'mRNA'} == set(item.keys())
+        assert {'miRNA', 'DNAm.yaml', 'mRNA'} == set(item.keys())
 
         for value in item.values():
             assert {'inputs', 'reconstruction_targets', 'idx', 'triplet_kind', 'project_id'} == set(value.keys())

@@ -1,9 +1,0 @@
-defaults:
-  - base
-
-net_params:
-  in_features: 5153
-
-modality: DNAm
-gpu: 6
-experiment_name: DNAm

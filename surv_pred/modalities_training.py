@@ -7,10 +7,11 @@ import pandas as pd
 
 import torchtuples as tt
 import wandb
+from surv_pred import models
 
 from torch.nn.functional import nll_loss, mse_loss, binary_cross_entropy
 
-from surv_pred.models import MLPVanilla, SurvMLP
+from surv_pred.models import MLPVanilla, SurvMLP, SurvAE
 from surv_pred.utils import concordance_index
 import lifelines
 import torch
@@ -30,19 +31,6 @@ from typer import Typer
 from surv_pred.datasets import ModalitiesDataset
 import hydra
 from omegaconf import DictConfig, OmegaConf
-
-CONFIG = {
-    'dataset_params':
-        {
-
-            'modality': 'miRNA',
-
-        },
-
-    'mlp_params': {'in_features': 1876, 'num_nodes': (32, 32), 'batch_norm': True,
-                   'activation': nn.ReLU, 'dropout': 0.},
-    'batch_size': 32
-}
 
 
 class ModalitiesDataModule(LightningDataModule):
@@ -153,7 +141,7 @@ class ModalitiesModel(LightningModule):
         super().__init__()
         self.save_hyperparameters(params)
 
-        self.net = SurvMLP(**self.hparams.net_params)
+        self.net = getattr(models, self.hparams.net_params.name)(**self.hparams.net_params)
 
     def prepare_data(self) -> None:
         return
@@ -188,14 +176,30 @@ class ModalitiesModel(LightningModule):
                                                               event_observed=events.cpu().numpy()
                                                               )
 
+        recon_loss = self.compute_reconstruction_loss(
+            reconstruction_loss_params=self.hparams.reconstruction_loss_params,
+            prediction=interm_out[-1],
+            target=features
+        )
         log_dict = {
             f'{purpose}/loss': loss,
             f'{purpose}/concordance_index': concordance_index,
+
             f'{purpose}/brier_score': brier_score
         }
-        self.log_dict(log_dict, prog_bar=True)
+        if recon_loss is not None:
+            loss += recon_loss
+            log_dict.update({f'{purpose}/recon_loss': recon_loss})
+
+        self.log_dict(log_dict, prog_bar=True, batch_size=features.shape[0])
 
         return {'loss': loss, **log_dict}
+
+    @staticmethod
+    def compute_reconstruction_loss(reconstruction_loss_params, prediction, target):
+        if not reconstruction_loss_params['use']:
+            return
+        return getattr(nn.functional, reconstruction_loss_params['method'])(prediction, target)
 
     def configure_optimizers(self):
         return AdamW(params=self.net.parameters(), lr=5e-4)
@@ -212,20 +216,9 @@ def compute_baseline_hazards(model: ModalitiesModel, batch):
     return model
 
 
-@hydra.main(version_base=None, config_path='config/modalities_surv', config_name='config')
+@hydra.main(version_base=None, config_path='config', config_name='config')
 def main(config: DictConfig):
-    if config.debug:
-        ml_logger = TensorBoardLogger(save_dir=tempfile.gettempdir(),
-                                      name=config.modality.experiment_name
-                                      )
-
-    else:
-        ml_logger = WandbLogger(project=config.project,
-                                name=config.modality.experiment_name,
-                                log_model=config.log_model
-                                )
-
-    dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality.modality)
+    dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality)
 
     print(OmegaConf.to_yaml(config))
 
@@ -233,13 +226,27 @@ def main(config: DictConfig):
     config.val_patients = dm.val_patients
     config.test_patients = dm.test_patients
 
-    model = ModalitiesModel(params=dict(config.modality),
-                            device=config.modality.gpu)
+    model = ModalitiesModel(params=dict(config),
+                            device=config.gpu,
+                            )
 
-    trainer = Trainer(gpus=[config.modality.gpu],
+    if config.debug:
+        ml_logger = TensorBoardLogger(save_dir=tempfile.gettempdir(),
+                                      name=f'{config.modality}/{config.net_params.name}'
+                                      )
+
+    else:
+        ml_logger = WandbLogger(project=config.project,
+                                name=f'modality={config.modality}/network={config.net_params.name}/use_recon_loss={config.reconstruction_loss_params.use}/dropout={config.net_params.dropout}',
+                                log_model=config.log_model
+                                )
+        ml_logger.watch(model, log_graph=True)
+
+    trainer = Trainer(gpus=[config.gpu],
                       logger=ml_logger,
                       callbacks=[EarlyStopping(**config.early_stop_monitor)],
-                      limit_train_batches=0.2
+                      limit_train_batches=0.2,
+                      log_every_n_steps=20
                       )
     trainer.fit(model, datamodule=dm)
 

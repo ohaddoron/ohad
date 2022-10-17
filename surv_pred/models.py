@@ -2,19 +2,24 @@ import torch
 from torch import nn
 import typing as tp
 
+from torch.nn import Softmax
 from torchtuples import tuplefy
 from torchtuples.practical import DenseVanillaBlock
 import torchtuples as tt
 
 
 class DenseBlock(nn.Module):
-    def __init__(self, in_features: int, out_features: int, activation: str, activation_params=None,
+    def __init__(self, in_features: int, out_features: int, activation: tp.Union[str, tp.Callable],
+                 activation_params=None,
                  dropout_rate: float = 0.):
         super(DenseBlock, self).__init__()
         if activation_params is None:
             activation_params = {}
         self.bn = nn.BatchNorm1d(out_features)
-        self.activation = getattr(nn, activation)(**activation_params)
+        if isinstance(activation, str):
+            self.activation = getattr(nn, activation)(**activation_params)
+        else:
+            self.activation = activation
 
         self.linear = nn.Linear(in_features=in_features, out_features=out_features)
         self.dropout = nn.Dropout(dropout_rate)
@@ -57,6 +62,53 @@ class SurvMLP(nn.Module):
         self.survival_layer = DenseBlock(in_features=nodes[-1],
                                          out_features=survival_output_resolution,
                                          activation='Softmax',
+                                         dropout_rate=dropout)
+
+    def forward(self, x):
+        interm_output = [x]
+
+        for layer in self.layers:
+            interm_output.append(layer(interm_output[-1]))
+
+        raw_surv_out = self.survival_layer(interm_output[-1])
+
+        return convert_predictions_to_survival_prediction(raw_surv_out), interm_output
+
+
+class SurvAE(nn.Module):
+    def __init__(self,
+                 in_features: int,
+                 hidden_nodes: tp.Union[int, tp.List[int], tp.Tuple[int]],
+                 survival_output_resolution: int = 100,
+                 activation: str = 'ReLU',
+                 dropout: float = 0.,
+                 **kwargs
+                 ):
+        super(SurvAE, self).__init__()
+
+        if isinstance(hidden_nodes, int):
+            hidden_nodes = [hidden_nodes]
+
+        nodes = [in_features] + hidden_nodes
+
+        self.layers = nn.ModuleList()
+
+        for num_units_pre, num_units_post in zip(nodes[:-1], nodes[1:]):
+            self.layers.append(DenseBlock(in_features=num_units_pre,
+                                          out_features=num_units_post,
+                                          activation=activation,
+                                          dropout_rate=dropout
+                                          )
+                               )
+        self.layers.append(DenseBlock(in_features=hidden_nodes[-1],
+                                      out_features=in_features,
+                                      activation=nn.Identity(),
+                                      dropout_rate=dropout
+                                      )
+                           )
+        self.survival_layer = DenseBlock(in_features=in_features,
+                                         out_features=survival_output_resolution,
+                                         activation=Softmax(dim=1),
                                          dropout_rate=dropout)
 
     def forward(self, x):

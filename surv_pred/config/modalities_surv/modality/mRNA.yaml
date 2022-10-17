@@ -1,9 +1,0 @@
-defaults:
-  - base
-net_params:
-  in_features: 5000
-
-modality: mRNA
-gpu: 5
-
-experiment_name: mRNA

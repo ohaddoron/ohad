@@ -1,3 +1,4 @@
+name: SurvMLP
 dropout: 0.2
 batch_norm: true
 hidden_nodes: [ 32, 32 ]

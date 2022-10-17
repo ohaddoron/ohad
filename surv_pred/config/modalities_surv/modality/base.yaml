@@ -1,4 +1,0 @@
-defaults:
-  - net_params: surv_mlp
-
-loss_fn: mse_loss

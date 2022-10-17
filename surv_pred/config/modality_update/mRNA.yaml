@@ -1,0 +1,5 @@
+# @package _global_
+modality: mRNA
+net_params:
+  in_features: 5000
+gpu: 4

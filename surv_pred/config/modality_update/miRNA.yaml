@@ -1,0 +1,6 @@
+# @package _global_
+modality: miRNA
+net_params:
+  in_features: 1876
+
+gpu: 5

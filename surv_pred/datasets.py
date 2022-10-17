@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 CONFIG = {
     'patients': ['TCGA-09-2054', 'TCGA-10-0933', 'TCGA-05-4389', 'TCGA-04-1331', 'TCGA-04-1332', 'TCGA-04-1336'],
-    'modality': 'miRNA',
+    'modality_update': 'miRNA',
     'db_params': {
         'mongodb_connection_string': 'mongodb://admin:mimp1lab@132.66.207.18:80/?authSource=admin&authMechanism=SCRAM-SHA-256&readPreference=primary&appname=MongoDB%20Compass&directConnection=true&ssl=false',
         'db_name': 'TCGAOmics'
