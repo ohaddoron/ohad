@@ -11,7 +11,7 @@ class AbstractDescriptor(ABC):
     def __init__(self):
         with st.sidebar.container():
             with st.form('modality_selection'):
-                modalities = st.multiselect(label='Modalities', options=['miRNA', 'DNAm', 'mRNA'])
+                modalities = st.multiselect(label='Modalities', options=['miRNA', 'DNAm.yaml', 'mRNA'])
                 if not st.form_submit_button():
                     st.stop()
 

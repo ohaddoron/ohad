@@ -1,4 +1,5 @@
 import os
+import random
 import tempfile
 import typing as tp
 
@@ -11,6 +12,7 @@ from surv_pred import models
 
 from torch.nn.functional import nll_loss, mse_loss, binary_cross_entropy
 
+from surv_pred.losses import contrastive_loss
 from surv_pred.models import MLPVanilla, SurvMLP, SurvAE
 from surv_pred.utils import concordance_index
 import lifelines
@@ -181,19 +183,47 @@ class ModalitiesModel(LightningModule):
             prediction=interm_out[-1],
             target=features
         )
+
+        c_loss = self.compute_contrastive_loss(interm_out=interm_out, features=features,
+                                               **self.hparams.contrastive_loss_params)
+
         log_dict = {
             f'{purpose}/loss': loss,
             f'{purpose}/concordance_index': concordance_index,
-
             f'{purpose}/brier_score': brier_score
         }
         if recon_loss is not None:
             loss += recon_loss
             log_dict.update({f'{purpose}/recon_loss': recon_loss})
 
+        if c_loss is not None:
+            loss += c_loss
+            log_dict.update({f'{purpose}/c_loss': c_loss})
+
         self.log_dict(log_dict, prog_bar=True, batch_size=features.shape[0])
 
         return {'loss': loss, **log_dict}
+
+    def compute_contrastive_loss(self, features, interm_out, use: bool, dropout_rate: float):
+        if use:
+            repr_1 = interm_out[-2]
+            repr_2 = self(nn.functional.dropout(features, dropout_rate))[1][-2]
+            embs_1, embs_2, target = [], [], []
+            for i in range(len(repr_1)):
+                # pos
+                embs_1.append(repr_1[i])
+                embs_2.append(repr_2[i])
+                target.append(torch.tensor(1, dtype=torch.long, device=repr_1.device))
+                # neg
+                embs_1.append(repr_1[1])
+                embs_2.append(repr_2[random.choice(list(set(range(len(repr_1))) - {i}))])
+                target.append(torch.tensor(0, dtype=torch.long, device=repr_1.device))
+            embs_1 = torch.stack(embs_1, dim=0)
+            embs_2 = torch.stack(embs_2, dim=0)
+            target = torch.stack(target)
+
+            return nn.CosineEmbeddingLoss(margin=0.5)(embs_1, embs_2, target)
+        return
 
     @staticmethod
     def compute_reconstruction_loss(reconstruction_loss_params, prediction, target):
@@ -232,7 +262,7 @@ def main(config: DictConfig):
 
     if config.debug:
         ml_logger = TensorBoardLogger(save_dir=tempfile.gettempdir(),
-                                      name=f'{config.modality}/{config.net_params.name}'
+                                      name=f'modality={config.modality}'
                                       )
 
     else:

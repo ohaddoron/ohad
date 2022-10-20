@@ -20,6 +20,9 @@ early_stop_monitor:
 reconstruction_loss_params:
   use: false
   method: mse_loss
+contrastive_loss_params:
+  use: false
+  dropout_rate: 0.3
 db:
   db_params:
     mongodb_connection_string: 'mongodb://admin:mimp1lab@132.66.207.18:80'
