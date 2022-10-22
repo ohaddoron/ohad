@@ -146,22 +146,24 @@ class MLPVanilla(nn.Module):
 
 
 class CnvNet(nn.Module):
-    def __init__(self, in_features, net_params: dict, embedding_dims=(3, 2)):
+    def __init__(self, in_features, net_params: dict, embedding_dims=(3, 2), **kwargs):
+        super().__init__()
         embedding_dims = [embedding_dims] * in_features
         self.embedding_layers = nn.ModuleList([nn.Embedding(x, y) for x, y in embedding_dims])
 
         n_embeddings = in_features * 2
 
+
         self.fc = self._init_net(in_features=n_embeddings, **net_params)
 
     @staticmethod
     def _init_net(name: str, **kwargs) -> nn.Module:
-        return getattr(globals(), name)(**kwargs)
+        return globals()[name](**kwargs)
 
     def forward(self, x):
         x = x.to(torch.int64)
 
-        x = [emb_layer(x[:, i])
+        x = [emb_layer(x[:, i] + 1)
              for i, emb_layer in enumerate(self.embedding_layers)]
         x = torch.cat(x, 1)
         out = self.fc(x)
@@ -174,7 +176,7 @@ class ClinicalNet(nn.Module):
     Handle continuous features and categorical feature embeddings.
     """
 
-    def __init__(self, output_vector_size, embedding_dims=None):
+    def __init__(self, net_params, embedding_dims=None, **kwargs):
         super(ClinicalNet, self).__init__()
         # Embedding layer
         if embedding_dims is None:
@@ -197,10 +199,13 @@ class ClinicalNet(nn.Module):
         self.bn_layer = nn.BatchNorm1d(n_continuous)
 
         # Output Layer
-        self.output_layer = FC(256, output_vector_size, 1)
+        self.output_layer = self._init_net(in_features=256, **net_params)
 
+    @staticmethod
+    def _init_net(name: str, **kwargs) -> nn.Module:
+        return globals()[name](**kwargs)
     def forward(self, x):
-        categorical_x, continuous_x = x
+        continuous_x, categorical_x = x[:, :1], x[:, 1:]
         categorical_x = categorical_x.to(torch.int64)
 
         x = [emb_layer(categorical_x[:, i])

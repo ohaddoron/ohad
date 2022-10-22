@@ -1,0 +1,22 @@
+defaults:
+  - surv_ae
+name: ClinicalNet
+embedding_dims:
+  - [33, 17]
+  - [2, 1]
+  - [8, 4]
+  - [3, 2]
+  - [3, 2]
+  - [3, 2]
+  - [3, 2]
+  - [3, 2]
+  - [20, 10]
+
+net_params:
+  name: SurvAE
+  dropout: 0.2
+  batch_norm: true
+  hidden_nodes: [ 128, 32 ]
+  activation: ReLU
+  survival_output_resolution: 100
+

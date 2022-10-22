@@ -43,6 +43,7 @@ class DummyScaler(StandardScaler):
         return X
 
 
+
 class ModalitiesDataset(Dataset, ABC):
     def __init__(self,
                  modality: str,
@@ -105,7 +106,7 @@ class ModalitiesDataset(Dataset, ABC):
             scaler = make_column_transformer(
                 (
                     StandardScaler(),
-                    make_column_selector(dtype_include=float),
+                    make_column_selector(dtype_include=float, dtype_exclude=np.int64),
 
                 ),
                 remainder='passthrough'
@@ -121,7 +122,7 @@ class ModalitiesDataset(Dataset, ABC):
                             patients: tp.List[str]) -> pd.DataFrame:
         df = pd.read_csv(Path(__file__).parent.joinpath(f'{modality}.csv')).set_index('patient')
         all_data = df.loc[patients]
-        return all_data
+        return all_data.dropna()
 
     def fetch_survival_data(self, mongodb_connection_string: str, db_name: str, patients: tp.List[str]):
         with MongoClient(mongodb_connection_string) as client:

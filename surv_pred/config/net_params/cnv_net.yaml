@@ -1,0 +1,11 @@
+defaults:
+  - surv_ae
+name: CnvNet
+embedding_dims: [3, 2]
+net_params:
+  name: SurvAE
+  dropout: 0.2
+  batch_norm: true
+  hidden_nodes: [ 128, 32 ]
+  activation: ReLU
+  survival_output_resolution: 100

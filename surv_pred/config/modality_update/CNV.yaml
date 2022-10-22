@@ -1,0 +1,5 @@
+# @package _global_
+modality: CNV
+net_params:
+    in_features: 2000
+gpu: 7

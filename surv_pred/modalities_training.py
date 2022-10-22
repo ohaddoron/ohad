@@ -2,6 +2,7 @@ import os
 import random
 import tempfile
 import typing as tp
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -43,44 +44,11 @@ class ModalitiesDataModule(LightningDataModule):
         with MongoClient(dataset_params['db_params']['mongodb_connection_string']) as client:
             db = client[dataset_params['db_params']['db_name']]
             col = db['metadata']
-            _patients = [
-                'TCGA-04-1331', 'TCGA-04-1332', 'TCGA-04-1336',
-                'TCGA-04-1337', 'TCGA-04-1341', 'TCGA-04-1342',
-                'TCGA-04-1343', 'TCGA-04-1346', 'TCGA-04-1347',
-                'TCGA-04-1348', 'TCGA-04-1349', 'TCGA-04-1350',
-                'TCGA-04-1356', 'TCGA-04-1357', 'TCGA-04-1361',
-                'TCGA-04-1362', 'TCGA-04-1364', 'TCGA-04-1365',
-                'TCGA-04-1367', 'TCGA-04-1514', 'TCGA-04-1517',
-                'TCGA-04-1519', 'TCGA-04-1525', 'TCGA-04-1530',
-                'TCGA-04-1536', 'TCGA-04-1542', 'TCGA-04-1638',
-                'TCGA-04-1646', 'TCGA-04-1648', 'TCGA-04-1649',
-                'TCGA-04-1651', 'TCGA-04-1652', 'TCGA-04-1654',
-                'TCGA-04-1655', 'TCGA-05-4244', 'TCGA-05-4249',
-                'TCGA-05-4250', 'TCGA-05-4382', 'TCGA-05-4384',
-                'TCGA-05-4389', 'TCGA-05-4390', 'TCGA-05-4395',
-                'TCGA-05-4396', 'TCGA-05-4397', 'TCGA-05-4398',
-                'TCGA-05-4402', 'TCGA-05-4403', 'TCGA-05-4405',
-                'TCGA-05-4410', 'TCGA-05-4415', 'TCGA-05-4417',
-                'TCGA-05-4418', 'TCGA-05-4420', 'TCGA-05-4422',
-                'TCGA-05-4424', 'TCGA-05-4425', 'TCGA-05-4426',
-                'TCGA-05-4427', 'TCGA-05-4430', 'TCGA-05-4432',
-                'TCGA-05-4433', 'TCGA-05-4434', 'TCGA-05-5420',
-                'TCGA-05-5423', 'TCGA-05-5425', 'TCGA-05-5428',
-                'TCGA-05-5429', 'TCGA-05-5715', 'TCGA-09-0364',
-                'TCGA-09-0366', 'TCGA-09-0367', 'TCGA-09-1661',
-                'TCGA-09-1662', 'TCGA-09-1665', 'TCGA-09-1666',
-                'TCGA-09-1667', 'TCGA-09-1668', 'TCGA-09-1669',
-                'TCGA-09-1670', 'TCGA-09-1673', 'TCGA-09-1674',
-                'TCGA-09-2044', 'TCGA-09-2045', 'TCGA-09-2048',
-                'TCGA-09-2050', 'TCGA-09-2051', 'TCGA-09-2053',
-                'TCGA-09-2054', 'TCGA-09-2056', 'TCGA-10-0926',
-                'TCGA-10-0927', 'TCGA-10-0928', 'TCGA-10-0930',
-                'TCGA-10-0931', 'TCGA-10-0933', 'TCGA-10-0934',
-                'TCGA-10-0936', 'TCGA-10-0937', 'TCGA-10-0938']
+
             _patients = col.find({'split': 'train'}).distinct('patient')
 
         patients_in_modality = set(
-            self.get_patients_in_modality(**dataset_params['db_params'], modality=modality))
+            self.get_patients_in_modality(modality=modality))
         _patients = list(set(_patients).intersection(set(patients_in_modality)))
         self.train_patients, self.val_patients = train_test_split(_patients, test_size=0.1)
 
@@ -89,10 +57,10 @@ class ModalitiesDataModule(LightningDataModule):
         self.modality = modality
         # self.test_patients = self.val_patients
 
-    def get_patients_in_modality(self, mongodb_connection_string: str, db_name: str, modality: str):
-        with MongoClient(mongodb_connection_string) as client:
-            col = client[db_name][modality]
-            return col.distinct('patient')
+    @staticmethod
+    def get_patients_in_modality(modality: str, **kwargs):
+        df = pd.read_csv(Path(__file__).parent.joinpath(f'{modality}.csv')).set_index('patient').dropna()
+        return df.index.tolist()
 
     def setup(self, stage: tp.Optional[str] = None) -> None:
         self.train_dataset = ModalitiesDataset(patients=self.train_patients, modality=self.modality,

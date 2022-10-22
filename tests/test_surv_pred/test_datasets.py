@@ -13,7 +13,7 @@ def config():
                      'TCGA-04-1343', 'TCGA-04-1346', 'TCGA-04-1347',
                      'TCGA-04-1348', 'TCGA-04-1349', 'TCGA-04-1350',
                      ],
-        'modality': 'miRNA',
+        'modality': 'Clinical',
         'db_params': {
             'mongodb_connection_string': 'mongodb://admin:mimp1lab@132.66.207.18:80/?authSource=admin&authMechanism=SCRAM-SHA-256&readPreference=primary&appname=MongoDB%20Compass&directConnection=true&ssl=false',
             'db_name': 'TCGAOmics'

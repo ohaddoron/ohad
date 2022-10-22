@@ -1,0 +1,7 @@
+defaults:
+  - base
+
+net_params:
+  in_features: 5153
+
+gpu: 6

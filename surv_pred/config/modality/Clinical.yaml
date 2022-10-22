@@ -1,0 +1,5 @@
+defaults:
+  - base
+net_params:
+  in_features: 2000
+
