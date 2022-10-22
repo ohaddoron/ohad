@@ -11,6 +11,7 @@ from pycox.models import CoxTime
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection
+from sklearn.compose import ColumnTransformer, make_column_transformer, make_column_selector
 from sklearn.preprocessing import StandardScaler
 from sklearn_pandas import DataFrameMapper
 from torch.utils.data import Dataset, DataLoader
@@ -34,23 +35,32 @@ def connect_to_database(mongodb_connection_string: str, db_name: str) -> Databas
     return MongoClient(mongodb_connection_string)[db_name]
 
 
+class DummyScaler(StandardScaler):
+    def fit(self):
+        return
+
+    def transform(self, X, copy=None):
+        return X
+
+
 class ModalitiesDataset(Dataset, ABC):
     def __init__(self,
                  modality: str,
                  patients: tp.List[str],
                  db_params: dict,
                  labtrans: CoxTime.label_transform = None,
-                 scaler: StandardScaler = None,
+                 scaler: ColumnTransformer = None,
                  max_survival_duration: float = 32,
                  survival_resolution: int = 100,
 
                  ):
         self._db_params = db_params
+        self.modality = modality
 
         self.patients = list(set(patients))
 
         logger.info('Fetching raw data')
-        self.data = self.fetch_modality_data(**db_params, patients=list(self.patients), modality=modality)
+        self.data: pd.DataFrame = self.fetch_modality_data(**db_params, patients=list(self.patients), modality=modality)
         logger.info('Raw data fetched')
 
         logger.info('Fetching survival data')
@@ -86,19 +96,29 @@ class ModalitiesDataset(Dataset, ABC):
                 ]
 
     @property
-    def scaler(self):
+    def scaler(self) -> ColumnTransformer:
         return self._scaler
 
-    def get_scaler(self, scaler: StandardScaler) -> StandardScaler:
+    def get_scaler(self, scaler: ColumnTransformer) -> ColumnTransformer:
         if scaler is None:
-            scaler = StandardScaler()
+
+            scaler = make_column_transformer(
+                (
+                    StandardScaler(),
+                    make_column_selector(dtype_include=float),
+
+                ),
+                remainder='passthrough'
+            )
+
             scaler.fit(self.data)
             return scaler
         else:
             return scaler
 
     @staticmethod
-    def fetch_modality_data(mongodb_connection_string: str, db_name: str, modality, patients: tp.List[str]):
+    def fetch_modality_data(mongodb_connection_string: str, db_name: str, modality,
+                            patients: tp.List[str]) -> pd.DataFrame:
         df = pd.read_csv(Path(__file__).parent.joinpath(f'{modality}.csv')).set_index('patient')
         all_data = df.loc[patients]
         return all_data
@@ -120,10 +140,6 @@ class ModalitiesDataset(Dataset, ABC):
         if self._feature_names is None:
             feature_names = set(map(lambda x: x['name'], self.data))
             return feature_names
-            for patient in tqdm(self.patients):
-                feature_names.intersection(
-                    set(map(lambda x: x['name'], filter(lambda x: x['patient'] == patient, self.data))))
-            self._feature_names = sorted(list(feature_names))
 
         return self._feature_names
 

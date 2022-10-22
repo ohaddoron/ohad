@@ -143,3 +143,74 @@ class MLPVanilla(nn.Module):
     def forward(self, input, time):
         input = torch.cat([input, time], dim=1)
         return self.net(input)
+
+
+class CnvNet(nn.Module):
+    def __init__(self, in_features, net_params: dict, embedding_dims=(3, 2)):
+        embedding_dims = [embedding_dims] * in_features
+        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y) for x, y in embedding_dims])
+
+        n_embeddings = in_features * 2
+
+        self.fc = self._init_net(in_features=n_embeddings, **net_params)
+
+    @staticmethod
+    def _init_net(name: str, **kwargs) -> nn.Module:
+        return getattr(globals(), name)(**kwargs)
+
+    def forward(self, x):
+        x = x.to(torch.int64)
+
+        x = [emb_layer(x[:, i])
+             for i, emb_layer in enumerate(self.embedding_layers)]
+        x = torch.cat(x, 1)
+        out = self.fc(x)
+
+        return out
+
+
+class ClinicalNet(nn.Module):
+    """Clinical data extractor.
+    Handle continuous features and categorical feature embeddings.
+    """
+
+    def __init__(self, output_vector_size, embedding_dims=None):
+        super(ClinicalNet, self).__init__()
+        # Embedding layer
+        if embedding_dims is None:
+            embedding_dims = [
+                (33, 17), (2, 1), (8, 4), (3, 2), (3, 2), (3, 2), (3, 2), (3, 2),
+                (20, 10)]
+        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y)
+                                               for x, y in embedding_dims])
+
+        n_embeddings = sum([y for x, y in embedding_dims])
+        n_continuous = 1
+
+        # Linear Layers
+        self.linear = nn.Linear(n_embeddings + n_continuous, 256)
+
+        # Embedding dropout Layer
+        self.embedding_dropout = nn.Dropout()
+
+        # Continuous feature batch norm layer
+        self.bn_layer = nn.BatchNorm1d(n_continuous)
+
+        # Output Layer
+        self.output_layer = FC(256, output_vector_size, 1)
+
+    def forward(self, x):
+        categorical_x, continuous_x = x
+        categorical_x = categorical_x.to(torch.int64)
+
+        x = [emb_layer(categorical_x[:, i])
+             for i, emb_layer in enumerate(self.embedding_layers)]
+        x = torch.cat(x, 1)
+        x = self.embedding_dropout(x)
+
+        continuous_x = self.bn_layer(continuous_x)
+
+        x = torch.cat([x, continuous_x], 1)
+        out = self.output_layer(self.linear(x))
+
+        return out
