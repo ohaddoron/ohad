@@ -1,10 +1,12 @@
 import csv
+import random
 from abc import ABC
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pymongo.collection
+import torch
 import typer
 from loguru import logger
 from pycox.models import CoxTime
@@ -53,15 +55,13 @@ class ModalitiesDataset(Dataset, ABC):
                  scaler: ColumnTransformer = None,
                  max_survival_duration: float = 32,
                  survival_resolution: int = 100,
-
                  ):
         self._db_params = db_params
         self.modality = modality
 
-        self.patients = list(set(patients))
-
         logger.info('Fetching raw data')
-        self.data: pd.DataFrame = self.fetch_modality_data(**db_params, patients=list(self.patients), modality=modality)
+        self.data: pd.DataFrame = self.fetch_modality_data(**db_params, patients=patients, modality=modality)
+        self.patients = self.data.index.tolist()
         logger.info('Raw data fetched')
 
         logger.info('Fetching survival data')
@@ -118,9 +118,10 @@ class ModalitiesDataset(Dataset, ABC):
             return scaler
 
     @staticmethod
-    def fetch_modality_data(mongodb_connection_string: str, db_name: str, modality,
-                            patients: tp.List[str]) -> pd.DataFrame:
+    def fetch_modality_data(modality,
+                            patients: tp.List[str], **kwargs) -> pd.DataFrame:
         df = pd.read_csv(Path(__file__).parent.joinpath(f'{modality}.csv')).set_index('patient')
+        patients = set(df.index.tolist()).intersection(patients)
         all_data = df.loc[patients]
         return all_data.dropna()
 
@@ -152,6 +153,9 @@ class ModalitiesDataset(Dataset, ABC):
 
     def __getitem__(self, item):
         patient = self.patients[item]
+        return self.get_patient_data(patient=patient)
+
+    def get_patient_data(self, patient):
         surv_data = next(filter(lambda x: x['patient'] == patient, self.survival_data))
 
         event_index = np.searchsorted(self.survival_array, surv_data['duration']) + 1
@@ -167,3 +171,68 @@ class ModalitiesDataset(Dataset, ABC):
 
     def __len__(self):
         return len(self.patients)
+
+
+class MultiModalityDataset(Dataset):
+    def __init__(self,
+                 modalities: tp.List[str],
+                 patients: tp.List[str],
+                 db_params=None,
+                 labtrans: tp.Dict[str, CoxTime.label_transform] = None,
+                 scaler: tp.Dict[str, ColumnTransformer] = None,
+                 max_survival_duration: float = 32,
+                 survival_resolution: int = 100,
+                 ):
+        if db_params is None:
+            db_params = {}
+
+        if labtrans is None:
+            labtrans = {modality: None for modality in modalities}
+
+        if scaler is None:
+            scaler = {modality: None for modality in modalities}
+
+        self.datasets: tp.Dict[str, ModalitiesDataset] = {
+            modality: ModalitiesDataset(modality=modality, patients=patients, db_params=db_params,
+                                        labtrans=labtrans[modality], scaler=scaler[modality],
+                                        max_survival_duration=max_survival_duration,
+                                        survival_resolution=survival_resolution) for modality in
+            modalities}
+
+        self.patients = patients
+
+    def __len__(self):
+        return len(self.patients)
+
+    def __getitem__(self, item):
+        patient = self.patients[item]
+
+        modalities_available = [key for key in self.datasets.keys() if patient in self.datasets[key].patients]
+
+        chosen_modalities = random.sample(population=modalities_available, k=2)
+
+        return {f'{modality}/{key}': value for modality in chosen_modalities for key, value in
+                self.datasets[modality].get_patient_data(patient=patient).items()
+                }
+
+    @property
+    def modalities_available(self):
+        return list(key for key in self.datasets.keys())
+
+    def collate_fn(self, batch: tp.List[dict]):
+        outputs = {key: {} for key in self.modalities_available}
+
+        for item in batch:
+            for key, value in item.items():
+                modality, value_type = key.split('/')
+                if value_type not in outputs[modality]:
+                    outputs[modality][value_type] = []
+                outputs[modality][value_type].append(value)
+
+        for key in outputs:
+            if not outputs[key]:
+                continue
+            outputs[key]['features'] = torch.tensor(outputs[key]['features'])
+            outputs[key]['surv_fn'] = torch.tensor(outputs[key]['surv_fn'])
+            outputs[key]['duration'] = torch.tensor(outputs[key]['duration'])
+        return outputs

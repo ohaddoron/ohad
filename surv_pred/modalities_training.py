@@ -4,22 +4,13 @@ import tempfile
 import typing as tp
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-
-import torchtuples as tt
-import wandb
-from surv_pred import models
-
-from torch.nn.functional import nll_loss, mse_loss, binary_cross_entropy
-
-from surv_pred.losses import contrastive_loss
-from surv_pred.models import MLPVanilla, SurvMLP, SurvAE
-from surv_pred.utils import concordance_index
+import hydra
 import lifelines
+import lifelines.utils
+import numpy as np
 import torch
-import typer
-
+from loguru import logger as LOGGER
+from omegaconf import DictConfig, OmegaConf
 from pymongo import MongoClient
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import EarlyStopping
@@ -27,13 +18,12 @@ from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.nn import functional as F, BCELoss
-from torch.optim import AdamW, Adam
+from torch.nn import Parameter
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from typer import Typer
+
+from surv_pred import models
 from surv_pred.datasets import ModalitiesDataset
-import hydra
-from omegaconf import DictConfig, OmegaConf
 
 
 class ModalitiesDataModule(LightningDataModule):
@@ -113,6 +103,8 @@ class ModalitiesModel(LightningModule):
 
         self.net = getattr(models, self.hparams.net_params.name)(**self.hparams.net_params)
 
+        self.survival_threshold = Parameter(torch.tensor(0.01), requires_grad=False)
+
     def prepare_data(self) -> None:
         return
 
@@ -142,7 +134,8 @@ class ModalitiesModel(LightningModule):
         brier_score /= len(surv_outputs)
 
         concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(),
-                                                              (surv_outputs >= 0.01).sum(dim=1).detach().cpu().numpy(),
+                                                              torch.tensor(surv_outputs >= self.survival_threshold).sum(
+                                                                  dim=1).detach().cpu().numpy(),
                                                               event_observed=events.cpu().numpy()
                                                               )
 
@@ -170,7 +163,25 @@ class ModalitiesModel(LightningModule):
 
         self.log_dict(log_dict, prog_bar=True, batch_size=features.shape[0])
 
-        return {'loss': loss, **log_dict}
+        return {'loss': loss, **log_dict, 'durations': durations.detach(), 'surv_outputs': surv_outputs.detach(),
+                'events_observed': events.detach()}
+
+    def training_epoch_end(self, outputs: dict) -> None:
+        durations = torch.cat([item['durations'] for item in outputs])
+        surv_outputs = torch.cat([item['surv_outputs'] for item in outputs])
+        events = torch.cat([item['events_observed'] for item in outputs])
+        concordance_index_scores = []
+        thresholds = list(torch.arange(0., 1., 0.05))
+        for thresh in thresholds:
+            concordance_index_scores = lifelines.utils.concordance_index(durations.cpu().numpy(),
+                                                                         torch.tensor(
+                                                                             surv_outputs >= thresh).sum(
+                                                                             dim=1).detach().cpu().numpy(),
+                                                                         event_observed=events.cpu().numpy()
+                                                                         )
+        optimal = np.argmax(concordance_index_scores)
+        self.survival_threshold = Parameter(torch.tensor(thresholds[optimal], requires_grad=False))
+        LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
 
     def compute_contrastive_loss(self, features, interm_out, use: bool, dropout_rate: float):
         if use:

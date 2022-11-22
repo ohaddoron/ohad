@@ -1,0 +1,30 @@
+defaults:
+  - net_params: ???
+  - modality: ???
+  - optional modality_update: ${modality}
+  - override hydra/launcher: joblib
+
+log_model: true
+train_patients: ???
+val_patients: ???
+test_patients: ???
+batch_size: 32
+project: MOSP
+debug: false
+max_survival_duration: 32
+survival_resolution: 100
+early_stop_monitor:
+  monitor: val/concordance_index
+  mode: max
+  patience: 3
+reconstruction_loss_params:
+  use: false
+  method: mse_loss
+contrastive_loss_params:
+  use: false
+  dropout_rate: 0.3
+db:
+  db_params:
+    mongodb_connection_string: 'mongodb://admin:mimp1lab@132.66.207.18:80'
+    db_name: 'TCGAOmics'
+loss_fn: mse_loss
