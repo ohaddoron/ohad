@@ -1,0 +1,8 @@
+name: VanillaMLP
+dropout: 0.1
+batch_norm: true
+num_nodes: 8
+activation: ReLU
+
+
+

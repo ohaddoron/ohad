@@ -1,0 +1,76 @@
+defaults:
+  - override hydra/launcher: joblib
+
+log_model: true
+train_patients: ???
+val_patients: ???
+test_patients: ???
+batch_size: 32
+project: MultiModality
+debug: false
+max_survival_duration: 32
+survival_resolution: 100
+early_stop_monitor:
+  monitor: val/concordance_index
+  mode: max
+  patience: 50
+reconstruction_loss_params:
+  use: false
+  method: mse_loss
+contrastive_loss_params:
+  use: false
+  dropout_rate: 0.3
+db:
+  db_params:
+    mongodb_connection_string: 'mongodb://admin:mimp1lab@132.66.207.18:80'
+    db_name: 'TCGAOmics'
+loss_fn: mse_loss
+
+model_configs:
+  mRNA:
+    net_params:
+      name: SurvAE
+      dropout: 0.2
+      batch_norm: true
+      hidden_nodes: [ 32 ]
+      activation: ReLU
+      survival_output_resolution: 100
+      in_features: 5000
+  miRNA:
+    net_params:
+      name: SurvAE
+      dropout: 0.2
+      batch_norm: true
+      hidden_nodes: [ 32 ]
+      activation: ReLU
+      survival_output_resolution: 100
+      in_features: 1876
+  DNAm:
+    net_params:
+      name: SurvAE
+      dropout: 0.2
+      batch_norm: true
+      hidden_nodes: [ 32 ]
+      activation: ReLU
+      survival_output_resolution: 100
+      in_features: 5153
+  CNV:
+    net_params:
+      name: CnvNet
+      embedding_dims: [ 3, 2 ]
+      net_params:
+        name: SurvAE
+        dropout: 0.2
+        batch_norm: true
+        hidden_nodes: [ 128, 32 ]
+        activation: ReLU
+        survival_output_resolution: 100
+  Clinical:
+    net_params:
+      net_params:
+        name: SurvAE
+        dropout: 0.2
+        batch_norm: true
+        hidden_nodes: [ 32 ]
+        activation: ReLU
+        survival_output_resolution: 100

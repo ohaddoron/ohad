@@ -8,6 +8,7 @@ import hydra
 import lifelines
 import lifelines.utils
 import numpy as np
+import pandas as pd
 import torch
 from loguru import logger as LOGGER
 from omegaconf import DictConfig, OmegaConf
@@ -173,15 +174,17 @@ class ModalitiesModel(LightningModule):
         concordance_index_scores = []
         thresholds = list(torch.arange(0., 1., 0.05))
         for thresh in thresholds:
-            concordance_index_scores = lifelines.utils.concordance_index(durations.cpu().numpy(),
-                                                                         torch.tensor(
-                                                                             surv_outputs >= thresh).sum(
-                                                                             dim=1).detach().cpu().numpy(),
-                                                                         event_observed=events.cpu().numpy()
-                                                                         )
+            concordance_index_scores.append(lifelines.utils.concordance_index(durations.cpu().numpy(),
+                                                                              torch.tensor(
+                                                                                  surv_outputs >= thresh).sum(
+                                                                                  dim=1).detach().cpu().numpy(),
+                                                                              event_observed=events.cpu().numpy()
+                                                                              )
+                                            )
         optimal = np.argmax(concordance_index_scores)
         self.survival_threshold = Parameter(torch.tensor(thresholds[optimal], requires_grad=False))
-        LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
+        self.log('survival_threshold', self.survival_threshold)
+        # LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
 
     def compute_contrastive_loss(self, features, interm_out, use: bool, dropout_rate: float):
         if use:
