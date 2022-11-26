@@ -127,14 +127,20 @@ class MultiModalitiesModel(LightningModule):
         patients_interm_outputs = {}
         for modality in batch.keys():
 
-            features, durations, events, surv_fns, event_indices = batch[modality]['features'], \
-                                                                   batch[modality]['duration'], \
-                                                                   batch[modality]['event'], \
-                                                                   batch[modality]['surv_fn'], \
-                                                                   batch[modality]['event_index']
+            features, durations, events, surv_fns, event_indices, patients = batch[modality]['features'], \
+                                                                             batch[modality]['duration'], \
+                                                                             batch[modality]['event'], \
+                                                                             batch[modality]['surv_fn'], \
+                                                                             batch[modality]['event_index'], \
+                                                                             batch[modality]['patient']
 
-            surv_outputs[modality], interm_out = self.nets[modality](features)
-            
+            surv_outputs, interm_out = self.nets[modality](features)
+
+            for _interm_out, patient in zip(interm_out, patients):
+                patients_interm_outputs[patient] = {modality: _interm_out,
+                                                    **patients_interm_outputs[patient]} if patients_interm_outputs.get(
+                    patient) else {modality: _interm_out}
+
             loss[modality] = torch.tensor(0.).type_as(features)
             brier_score[modality] = torch.tensor(0.).type_as(features)
             for surv_out, surv_fn, event, event_ind in zip(surv_outputs, surv_fns, events, event_indices):
@@ -150,7 +156,7 @@ class MultiModalitiesModel(LightningModule):
                                                                             torch.tensor(
                                                                                 surv_outputs >= self.survival_threshold).sum(
                                                                                 dim=1).detach().cpu().numpy(),
-                                                                            event_observed=events.cpu().numpy()
+                                                                            event_observed=np.array(events)
                                                                             )
 
             recon_loss[modality] = self.compute_reconstruction_loss(
@@ -184,7 +190,7 @@ class MultiModalitiesModel(LightningModule):
     def training_epoch_end(self, outputs: dict) -> None:
         durations = torch.cat([item['durations'] for item in outputs])
         surv_outputs = torch.cat([item['surv_outputs'] for item in outputs])
-        events = torch.cat([item['events_observed'] for item in outputs])
+        events = np.concatenate([item['events_observed'] for item in outputs])
         concordance_index_scores = []
         thresholds = list(torch.arange(0., 1., 0.05))
         for thresh in thresholds:
@@ -192,7 +198,7 @@ class MultiModalitiesModel(LightningModule):
                                                                               torch.tensor(
                                                                                   surv_outputs >= thresh).sum(
                                                                                   dim=1).detach().cpu().numpy(),
-                                                                              event_observed=events.cpu().numpy()
+                                                                              event_observed=np.array(events)
                                                                               )
                                             )
         optimal = np.argmax(concordance_index_scores)
