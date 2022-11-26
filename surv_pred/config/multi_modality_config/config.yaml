@@ -1,11 +1,14 @@
 defaults:
   - override hydra/launcher: joblib
 
+modalities: [ miRNA, mRNA, DNAm, CNV,Clinical ]
+
+
 log_model: true
 train_patients: ???
 val_patients: ???
 test_patients: ???
-batch_size: 32
+batch_size: 256
 project: MultiModality
 debug: false
 max_survival_duration: 32
@@ -28,8 +31,8 @@ loss_fn: mse_loss
 
 model_configs:
   mRNA:
+    name: SurvAE
     net_params:
-      name: SurvAE
       dropout: 0.2
       batch_norm: true
       hidden_nodes: [ 32 ]
@@ -37,8 +40,8 @@ model_configs:
       survival_output_resolution: 100
       in_features: 5000
   miRNA:
+    name: SurvAE
     net_params:
-      name: SurvAE
       dropout: 0.2
       batch_norm: true
       hidden_nodes: [ 32 ]
@@ -46,8 +49,8 @@ model_configs:
       survival_output_resolution: 100
       in_features: 1876
   DNAm:
+    name: SurvAE
     net_params:
-      name: SurvAE
       dropout: 0.2
       batch_norm: true
       hidden_nodes: [ 32 ]
@@ -55,8 +58,10 @@ model_configs:
       survival_output_resolution: 100
       in_features: 5153
   CNV:
+    name: CnvNet
     net_params:
-      name: CnvNet
+      name: SurvAE
+      in_features: 2000
       embedding_dims: [ 3, 2 ]
       net_params:
         name: SurvAE
@@ -65,8 +70,12 @@ model_configs:
         hidden_nodes: [ 128, 32 ]
         activation: ReLU
         survival_output_resolution: 100
+
   Clinical:
+    name: ClinicalNet
+    in_features: 12
     net_params:
+      name: SurvAE
       net_params:
         name: SurvAE
         dropout: 0.2

@@ -73,3 +73,4 @@ class TestMultiModalitiesDataset:
     def test_dataloader(self, multi_modality_dataset):
         dl = DataLoader(multi_modality_dataset, batch_size=4, collate_fn=multi_modality_dataset.collate_fn)
         batch: dict = next(iter(dl))
+        pass

@@ -45,7 +45,6 @@ class DummyScaler(StandardScaler):
         return X
 
 
-
 class ModalitiesDataset(Dataset, ABC):
     def __init__(self,
                  modality: str,
@@ -209,11 +208,13 @@ class MultiModalityDataset(Dataset):
 
         modalities_available = [key for key in self.datasets.keys() if patient in self.datasets[key].patients]
 
-        chosen_modalities = random.sample(population=modalities_available, k=2)
+        chosen_modalities = random.sample(population=modalities_available, k=min(2, len(modalities_available)))
 
-        return {f'{modality}/{key}': value for modality in chosen_modalities for key, value in
-                self.datasets[modality].get_patient_data(patient=patient).items()
-                }
+        out = {f'{modality}/{key}': value for modality in chosen_modalities for key, value in
+               self.datasets[modality].get_patient_data(patient=patient).items()
+               }
+        [out.update({f'{modality}/patient': patient}) for modality in chosen_modalities]
+        return out
 
     @property
     def modalities_available(self):
