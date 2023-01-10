@@ -1,9 +1,9 @@
 defaults:
   - override hydra/launcher: joblib
 
-modalities: [ miRNA, mRNA, DNAm, CNV,Clinical ]
+modalities: [ miRNA, mRNA,DNAm, CNV, Clinical ]
 
-
+gpu: 4
 log_model: true
 train_patients: ???
 val_patients: ???
@@ -14,14 +14,14 @@ debug: false
 max_survival_duration: 32
 survival_resolution: 100
 early_stop_monitor:
-  monitor: val/concordance_index
-  mode: max
-  patience: 50
+  monitor: val/total_loss
+  mode: min
+  patience: 100
 reconstruction_loss_params:
   use: false
   method: mse_loss
 contrastive_loss_params:
-  use: false
+  use: true
   dropout_rate: 0.3
 db:
   db_params:
@@ -83,3 +83,14 @@ model_configs:
         hidden_nodes: [ 32 ]
         activation: ReLU
         survival_output_resolution: 100
+
+surv_head:
+  name: SurvMLP
+  params:
+    in_features: 32
+    hidden_nodes:
+      - 32
+      - 16
+    survival_output_resolution: 100
+    activation: ReLU
+    dropout: 0.2

@@ -25,6 +25,7 @@ from torch.utils.data import DataLoader
 
 from surv_pred import models
 from surv_pred.datasets import ModalitiesDataset
+from surv_pred.models import SurvMLP
 
 
 class ModalitiesDataModule(LightningDataModule):

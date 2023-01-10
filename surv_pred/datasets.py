@@ -233,7 +233,27 @@ class MultiModalityDataset(Dataset):
         for key in outputs:
             if not outputs[key]:
                 continue
-            outputs[key]['features'] = torch.tensor(outputs[key]['features'])
-            outputs[key]['surv_fn'] = torch.tensor(outputs[key]['surv_fn'])
-            outputs[key]['duration'] = torch.tensor(outputs[key]['duration'])
+            outputs[key]['features'] = torch.tensor(np.vstack(outputs[key]['features']))
+            outputs[key]['surv_fn'] = torch.tensor(np.vstack(outputs[key]['surv_fn']))
+            outputs[key]['duration'] = torch.tensor(np.vstack(outputs[key]['duration']))
         return outputs
+
+
+def multi_modal_config():
+    return {
+        'patients': ['TCGA-04-1331', 'TCGA-04-1332', 'TCGA-04-1336',
+                     'TCGA-04-1337', 'TCGA-04-1341', 'TCGA-04-1342',
+                     'TCGA-04-1343', 'TCGA-04-1346', 'TCGA-04-1347',
+                     'TCGA-04-1348', 'TCGA-04-1349', 'TCGA-04-1350',
+                     ],
+        'modalities': ['DNAm', 'mRNA', 'CNV', 'Clinical', 'miRNA'],
+        'db_params': {
+            'mongodb_connection_string': 'mongodb://admin:mimp1lab@132.66.207.18:80/?authSource=admin&authMechanism=SCRAM-SHA-256&readPreference=primary&appname=MongoDB%20Compass&directConnection=true&ssl=false',
+            'db_name': 'TCGAOmics'
+        }
+
+    }
+
+
+def multi_modality_dataset():
+    return MultiModalityDataset(**multi_modal_config())
