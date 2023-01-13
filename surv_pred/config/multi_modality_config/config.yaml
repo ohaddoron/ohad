@@ -94,3 +94,5 @@ surv_head:
     survival_output_resolution: 100
     activation: ReLU
     dropout: 0.2
+
+use_surv_head: true
