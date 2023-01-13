@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 import typing as tp
 
+import lifelines.utils
 from loguru import logger as LOGGER
 import hydra
 import lifelines
@@ -130,6 +131,9 @@ class MultiModalitiesModel(LightningModule):
                                                                                               {}]
         log_dict = {}
         patients_interm_outputs = {}
+        patients_surv_fn = {}
+        patients_events = {}
+        patients_durations = {}
         for modality in batch.keys():
             try:
                 features, durations, events, surv_fns, event_indices, patients = batch[modality]['features'], \
@@ -158,12 +162,14 @@ class MultiModalitiesModel(LightningModule):
 
             loss[modality] = []
             brier_score[modality] = []
-            for surv_out, surv_fn, event, event_ind in zip(surv_outputs, surv_fns, events, event_indices):
+            for patient, surv_out, surv_fn, event, event_ind in zip(patients, surv_outputs, surv_fns, events,
+                                                                    event_indices):
                 if event == 0:
                     surv_fn = surv_fn[:event_ind]
                     surv_out = surv_out[:event_ind]
                 loss[modality].append(getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn))
                 brier_score[modality].append(torch.mean((surv_fn - surv_out) ** 2))
+
             loss[modality] = sum(loss[modality]) / len(loss[modality])
             brier_score[modality] = torch.mean(torch.tensor(brier_score[modality]))
             self.log(f'{purpose}/{modality}_brier_score', brier_score[modality],
@@ -206,10 +212,12 @@ class MultiModalitiesModel(LightningModule):
             patients_features_interm_outputs=patients_interm_outputs
         )
 
-        embeddings_stacked = torch.cat(
-            list([torch.stack(list(item.values())) for item in patients_interm_outputs.values()]))
+        self.compute_surv_head_loss_concordance(
+            patients_interm_outputs=patients_interm_outputs,
+            events=events,
 
-        surv_out = self.surv_head(embeddings_stacked)
+        )
+
         self.log(f'{purpose}/multi_modality_contrastive_loss', multi_modality_contrastive_loss)
         self.log(f'{purpose}/concordance_index', torch.mean(torch.tensor(list(concordance_index.values()))))
         self.log(f'{purpose}/brier_score', torch.mean(torch.tensor(list(brier_score.values()))))
@@ -220,9 +228,9 @@ class MultiModalitiesModel(LightningModule):
         self.log(f'{purpose}/total_loss', total_loss)
 
         return {'loss': total_loss,
-                **log_dict, 'durations': durations.detach(),
+                **log_dict,
                 'surv_outputs': surv_outputs.detach(),
-                'events_observed': events}
+                }
 
     # def training_epoch_end(self, outputs: dict) -> None:
     #     durations = torch.cat([item['durations'] for item in outputs])
@@ -242,6 +250,37 @@ class MultiModalitiesModel(LightningModule):
     #     self.survival_threshold = Parameter(torch.tensor(thresholds[optimal], requires_grad=False))
     #     self.log('survival_threshold', self.survival_threshold)
     #     # LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
+
+    def compute_surv_head_loss_concordance(
+            self,
+            patients_interm_outputs: dict,
+            surv_fns: torch.Tensor,
+            durations: tp.List[int],
+            events: tp.List[int]
+    ) -> dict:
+        patients_surv_fn = []
+        patients_durations = []
+        patients_events = []
+        for patient in patients_interm_outputs.keys():
+            idx = patient.index(patient)
+            patients_surv_fn.extend(len(patients_interm_outputs[patient]) * [surv_fns[idx]])
+            durations.extend(len(durations[patient]) * [durations[idx]])
+            events.extend(len(events[patient]) * [events[idx]])
+
+        embeddings_stacked = torch.cat(
+            list([torch.stack(list(item.values())) for item in patients_interm_outputs.values()]))
+        surv_out = self.surv_head(embeddings_stacked)
+        surv_head_loss = getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn)
+        surv_head_concordance = lifelines.utils.concordance_index(np.array(durations),
+                                                                  torch.tensor(
+                                                                      surv_out >= self.survival_threshold).sum(
+                                                                      dim=1).detach().cpu().numpy(),
+                                                                  event_observed=np.array(events)
+                                                                  )
+        return dict(surv_head_loss=surv_head_loss,
+                    surv_head_concordance=surv_head_concordance,
+                    durations=durations,
+                    events=events)
 
     def compute_contrastive_loss_multi_modality(self, patients_features_interm_outputs: tp.Dict[
         str, tp.Dict[str, torch.Tensor]]):
