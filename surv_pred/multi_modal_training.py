@@ -303,9 +303,9 @@ class MultiModalitiesModel(LightningModule):
                                                                       dim=1).detach().cpu().numpy(),
                                                                   event_observed=np.array(events)
                                                                   )
-        loss = torch.mean(torch.tensor(loss))
+        surv_head_loss = sum(loss) / len(loss)
         brier_score = torch.mean(torch.tensor(brier_score))
-        return dict(surv_head_loss=loss,
+        return dict(surv_head_loss=surv_head_loss,
                     surv_head_concordance=surv_head_concordance,
                     durations=durations,
                     brier_score=brier_score,
