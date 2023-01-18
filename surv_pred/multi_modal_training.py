@@ -239,6 +239,12 @@ class MultiModalitiesModel(LightningModule):
 
             self.log(f'{purpose}/surv_head_loss', surv_head_out_dict['surv_head_loss'])
             self.log(f'{purpose}/surv_head_concordance', surv_head_out_dict['surv_head_concordance'])
+            self.log_dict(
+                {
+                    f'{purpose}/{key}': value for key, value in
+                    surv_head_out_dict['surv_head_modality_concordance'].items()
+                }
+            )
             total_loss += surv_head_out_dict['surv_head_loss']
 
         self.log(f'{purpose}/total_loss', total_loss)
@@ -282,11 +288,13 @@ class MultiModalitiesModel(LightningModule):
         event_indices = []
         loss = []
         brier_score = []
+        modalities = []
         for patient in patients_interm_outputs.keys():
             surv_fns.extend(len(patients_interm_outputs[patient]) * [patients_surv_fns[patient]])
             durations.extend(len(patients_interm_outputs[patient]) * [patients_durations[patient]])
             events.extend(len(patients_interm_outputs[patient]) * [patients_events[patient]])
             event_indices.extend(len(patients_interm_outputs[patient]) * [patients_events_index[patient]])
+            modalities.extend(list(patients_interm_outputs[patient].keys()))
         if self.hparams.use_modalities_embeddings:
             embeddings = []
             for item in patients_interm_outputs.values():
@@ -308,6 +316,21 @@ class MultiModalitiesModel(LightningModule):
                 surv_out = surv_out[:event_ind]
             loss.append(getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn))
             brier_score.append(torch.mean((surv_fn - surv_out) ** 2))
+        concordance = {}
+        for modality in self.hparams.modalities:
+            indices = np.stack(modalities) == modality
+            modality_durations = list(
+                torch.tensor(durations).cpu().numpy()[indices].astype(float))
+            modality_surv_outputs = surv_outputs[indices]
+            modality_events = np.array(events)[indices]
+
+            concordance[f'surv_head_{modality}_concordance_index'] = lifelines.utils.concordance_index(
+                modality_durations,
+                torch.tensor(
+                    modality_surv_outputs >= self.survival_threshold).sum(
+                    dim=1).detach().cpu().numpy(),
+                event_observed=modality_events
+            )
         surv_head_concordance = lifelines.utils.concordance_index(torch.tensor(durations).cpu().numpy(),
                                                                   torch.tensor(
                                                                       surv_outputs >= self.survival_threshold).sum(
@@ -320,7 +343,8 @@ class MultiModalitiesModel(LightningModule):
                     surv_head_concordance=surv_head_concordance,
                     durations=durations,
                     brier_score=brier_score,
-                    events=events)
+                    events=events,
+                    surv_head_modality_concordance=concordance)
 
     def compute_contrastive_loss_multi_modality(self, patients_features_interm_outputs: tp.Dict[
         str, tp.Dict[str, torch.Tensor]]):

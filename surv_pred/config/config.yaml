@@ -28,3 +28,5 @@ db:
     mongodb_connection_string: 'mongodb://admin:mimp1lab@132.66.207.18:80'
     db_name: 'TCGAOmics'
 loss_fn: mse_loss
+
+modality_loss_head_from_latent: true

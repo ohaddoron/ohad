@@ -59,7 +59,7 @@ class SurvMLP(nn.Module):
                                           dropout_rate=dropout
                                           )
                                )
-        self.survival_layer = DenseBlock(in_features=nodes[-1],
+        self.survival_layer = DenseBlock(in_features=nodes[-2],
                                          out_features=survival_output_resolution,
                                          activation='Softmax',
                                          dropout_rate=dropout)
@@ -70,7 +70,7 @@ class SurvMLP(nn.Module):
         for layer in self.layers:
             interm_output.append(layer(interm_output[-1]))
 
-        raw_surv_out = self.survival_layer(interm_output[-1])
+        raw_surv_out = self.survival_layer(interm_output[-2])
 
         return convert_predictions_to_survival_prediction(raw_surv_out), interm_output
 
@@ -106,7 +106,7 @@ class SurvAE(nn.Module):
                                       dropout_rate=dropout
                                       )
                            )
-        self.survival_layer = DenseBlock(in_features=in_features,
+        self.survival_layer = DenseBlock(in_features=hidden_nodes[-1],
                                          out_features=survival_output_resolution,
                                          activation=Softmax(dim=1),
                                          dropout_rate=dropout)
@@ -117,7 +117,7 @@ class SurvAE(nn.Module):
         for layer in self.layers:
             interm_output.append(layer(interm_output[-1]))
 
-        raw_surv_out = self.survival_layer(interm_output[-1])
+        raw_surv_out = self.survival_layer(interm_output[-2])
 
         return convert_predictions_to_survival_prediction(raw_surv_out), interm_output
 
@@ -152,7 +152,6 @@ class CnvNet(nn.Module):
         self.embedding_layers = nn.ModuleList([nn.Embedding(x, y) for x, y in embedding_dims])
 
         n_embeddings = in_features * 2
-
 
         self.fc = self._init_net(in_features=n_embeddings, **net_params)
 
@@ -204,6 +203,7 @@ class ClinicalNet(nn.Module):
     @staticmethod
     def _init_net(name: str, **kwargs) -> nn.Module:
         return globals()[name](**kwargs)
+
     def forward(self, x):
         continuous_x, categorical_x = x[:, :1], x[:, 1:]
         categorical_x = categorical_x.to(torch.int64)
