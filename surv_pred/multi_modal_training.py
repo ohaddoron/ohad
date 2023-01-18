@@ -114,6 +114,8 @@ class MultiModalitiesModel(LightningModule):
 
         self.surv_head = getattr(models, self.hparams.surv_head['name'])(**self.hparams.surv_head['params'])
 
+        self.modality_embedding = nn.Embedding(num_embeddings=len(self.hparams.modalities), embedding_dim=32)
+
     def prepare_data(self) -> None:
         return
 
@@ -285,9 +287,18 @@ class MultiModalitiesModel(LightningModule):
             durations.extend(len(patients_interm_outputs[patient]) * [patients_durations[patient]])
             events.extend(len(patients_interm_outputs[patient]) * [patients_events[patient]])
             event_indices.extend(len(patients_interm_outputs[patient]) * [patients_events_index[patient]])
-
-        embeddings_stacked = torch.cat(
-            list([torch.stack(list(item.values())) for item in patients_interm_outputs.values()]))
+        if self.hparams.use_modalities_embeddings:
+            embeddings = []
+            for item in patients_interm_outputs.values():
+                _embs = torch.stack(list(item.values()))
+                emb_pos = [self.hparams.modalities.index(key) for key in item.keys()]
+                modalities_embs = self.modality_embedding(torch.tensor(emb_pos, device=self.device))
+                _embs += modalities_embs
+                embeddings.append(_embs)
+            embeddings_stacked = torch.cat(embeddings)
+        else:
+            embeddings_stacked = torch.cat(
+                list([torch.stack(list(item.values())) for item in patients_interm_outputs.values()]))
         surv_outputs = self.surv_head(embeddings_stacked)[0]
         for patient, surv_out, surv_fn, event, event_ind, duration in zip(patients_interm_outputs.keys(), surv_outputs,
                                                                           surv_fns, events,
@@ -384,7 +395,8 @@ class MultiModalitiesModel(LightningModule):
         return getattr(nn.functional, reconstruction_loss_params['method'])(prediction, target)
 
     def configure_optimizers(self):
-        return AdamW(params=list(self.nets.parameters(recurse=True)) + list(self.surv_head.parameters()), lr=1e-4)
+        return AdamW(params=list(self.nets.parameters(recurse=True)) + list(self.surv_head.parameters()) + list(
+            self.modality_embedding.parameters()), lr=1e-4)
 
     def forward(self, x) -> tp.Any:
         return self.net(x)
