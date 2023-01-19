@@ -97,3 +97,5 @@ surv_head:
 
 use_surv_head: true
 use_modalities_embeddings: true
+modality_loss_head_from_latent: true
+use_separate_optimizer_for_surv_head: true
