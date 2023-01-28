@@ -12,7 +12,7 @@ batch_size: 256
 project: MultiModality
 debug: false
 max_survival_duration: 32
-survival_resolution: 100
+survival_resolution: &SURVIVAL_RESOLUTION 20
 early_stop_monitor:
   monitor: val/total_loss
   mode: min
@@ -37,7 +37,7 @@ model_configs:
       batch_norm: true
       hidden_nodes: [ 32 ]
       activation: ReLU
-      survival_output_resolution: 100
+      survival_output_resolution: *SURVIVAL_RESOLUTION
       in_features: 5000
   miRNA:
     name: SurvAE
@@ -46,7 +46,7 @@ model_configs:
       batch_norm: true
       hidden_nodes: [ 32 ]
       activation: ReLU
-      survival_output_resolution: 100
+      survival_output_resolution: *SURVIVAL_RESOLUTION
       in_features: 1876
   DNAm:
     name: SurvAE
@@ -55,7 +55,7 @@ model_configs:
       batch_norm: true
       hidden_nodes: [ 32 ]
       activation: ReLU
-      survival_output_resolution: 100
+      survival_output_resolution: *SURVIVAL_RESOLUTION
       in_features: 5153
   CNV:
     name: CnvNet
@@ -69,7 +69,7 @@ model_configs:
         batch_norm: true
         hidden_nodes: [ 128, 32 ]
         activation: ReLU
-        survival_output_resolution: 100
+        survival_output_resolution: *SURVIVAL_RESOLUTION
 
   Clinical:
     name: ClinicalNet
@@ -82,7 +82,7 @@ model_configs:
         batch_norm: true
         hidden_nodes: [ 32 ]
         activation: ReLU
-        survival_output_resolution: 100
+        survival_output_resolution: *SURVIVAL_RESOLUTION
 
 surv_head:
   name: SurvMLP
@@ -91,7 +91,7 @@ surv_head:
     hidden_nodes:
       - 32
       - 16
-    survival_output_resolution: 100
+    survival_output_resolution: *SURVIVAL_RESOLUTION
     activation: ReLU
     dropout: 0.2
 
@@ -99,3 +99,11 @@ use_surv_head: true
 use_modalities_embeddings: true
 modality_loss_head_from_latent: true
 use_separate_optimizer_for_surv_head: true
+
+latent_space_modality_concatenation_method: "single_modality" # deep_sets_embedding_averaging
+
+transformer_encoder_layer_params:
+  d_model: 32
+  n_head: 8
+
+fetch_all_modalities: true

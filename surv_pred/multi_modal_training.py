@@ -19,7 +19,7 @@ from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.nn import Parameter
+from torch.nn import Parameter, TransformerEncoderLayer
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
@@ -28,12 +28,15 @@ from surv_pred.datasets import MultiModalityDataset
 
 
 class MultiModalitiesDataModule(LightningDataModule):
-    def __init__(self, batch_size: int, dataset_params: dict, modalities: tp.List[str], **kwargs):
+    def __init__(self, batch_size: int, database_params: dict, modalities: tp.List[str],
+                 fetch_all_modalities: bool = False, survival_resolution: int = 100, **kwargs):
         super().__init__()
+        self.survival_resolution = survival_resolution
+        self.fetch_all_modalities = fetch_all_modalities
         self.batch_size = batch_size
-        self.dataset_params = dataset_params
-        with MongoClient(dataset_params['db_params']['mongodb_connection_string']) as client:
-            db = client[dataset_params['db_params']['db_name']]
+        self.database_params = database_params
+        with MongoClient(database_params['db_params']['mongodb_connection_string']) as client:
+            db = client[database_params['db_params']['db_name']]
             col = db['metadata']
 
             train_patients = col.find({'split': 'train'}).distinct('patient')
@@ -50,21 +53,28 @@ class MultiModalitiesDataModule(LightningDataModule):
         return df.index.tolist()
 
     def setup(self, stage: tp.Optional[str] = None) -> None:
-        self.train_dataset = MultiModalityDataset(patients=self.train_patients, modalities=self.modalities,
-                                                  **self.dataset_params)
-        self.val_dataset = MultiModalityDataset(patients=self.val_patients, modalities=self.modalities,
-                                                **self.dataset_params,
+        self.train_dataset = MultiModalityDataset(patients=self.train_patients,
+                                                  modalities=self.modalities,
+                                                  **self.database_params,
+                                                  fetch_all_modalities=self.fetch_all_modalities,
+                                                  survival_resolution=self.survival_resolution)
+        self.val_dataset = MultiModalityDataset(patients=self.val_patients,
+                                                modalities=self.modalities,
+                                                **self.database_params, fetch_all_modalities=self.fetch_all_modalities,
                                                 labtrans={modality: self.train_dataset.datasets[modality].labtrans for
                                                           modality in self.modalities},
                                                 scaler={modality: self.train_dataset.datasets[modality].scaler for
-                                                        modality in self.modalities}
+                                                        modality in self.modalities},
+                                                survival_resolution=self.survival_resolution
                                                 )
-        self.test_dataset = MultiModalityDataset(patients=self.test_patients, modalities=self.modalities,
-                                                 **self.dataset_params,
+        self.test_dataset = MultiModalityDataset(patients=self.test_patients,
+                                                 modalities=self.modalities,
+                                                 **self.database_params, fetch_all_modalities=self.fetch_all_modalities,
                                                  labtrans={modality: self.train_dataset.datasets[modality].labtrans for
                                                            modality in self.modalities},
                                                  scaler={modality: self.train_dataset.datasets[modality].scaler for
-                                                         modality in self.modalities}
+                                                         modality in self.modalities},
+                                                 survival_resolution=self.survival_resolution
                                                  )
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
@@ -115,6 +125,8 @@ class MultiModalitiesModel(LightningModule):
         self.surv_head = getattr(models, self.hparams.surv_head['name'])(**self.hparams.surv_head['params'])
 
         self.modality_embedding = nn.Embedding(num_embeddings=len(self.hparams.modalities), embedding_dim=32)
+
+        # self.transformer_encoder_layer = TransformerEncoderLayer(d_model=32, )
 
     def prepare_data(self) -> None:
         return
@@ -254,34 +266,12 @@ class MultiModalitiesModel(LightningModule):
                 'surv_outputs': surv_outputs.detach(),
                 }
 
-    def compute_surv_head_loss_concordance(
-            self,
-            patients_interm_outputs: dict,
-            patients_surv_fns: tp.Dict[str, torch.Tensor],
-            patients_durations: tp.Dict[str, int],
-            patients_events: tp.Dict[str, int],
-            patients_events_index: tp.Dict[str, int],
-    ) -> dict:
-        """
-        This function computes the survival head loss and concordance index for a given set of patients. The input
-        includes a dictionary of patients' intermediate outputs, survival functions, durations, events,
-        and event indices.
-
-        The function first initializes empty lists for the survival functions, durations, events, event indices,
-        loss, and Brier score. For each patient in the input dictionary, it extends the survival functions,
-        durations, events, and event indices lists by the appropriate number of copies of the patient's corresponding
-        values.
-
-        It then concatenates the intermediate outputs for each patient and pass it through a survival head (
-        self.surv_head) to get the survival outputs. It then calculates the loss for each patient using the specified
-        loss function (self.hparams.loss_fn) by comparing the survival outputs with the survival functions. It also
-        calculates the Brier score for each patient.
-
-        Finally, it uses the lifelines.utils.concordance_index function to calculate the concordance index for all
-        the patients, using the durations, survival outputs, and events as input. The function returns a dictionary
-        containing the survival head loss, concordance index, durations, Brier score, and events.
-
-        """
+    def _surv_head_inference_single_modality_based(self,
+                                                   patients_interm_outputs,
+                                                   patients_surv_fns,
+                                                   patients_durations, patients_events,
+                                                   patients_events_index
+                                                   ):
         surv_fns = []
         durations = []
         events = []
@@ -348,6 +338,173 @@ class MultiModalitiesModel(LightningModule):
                     events=events,
                     surv_head_modality_concordance=concordance)
 
+    def _surv_head_deep_sets_embedding_averaging(self,
+                                                 patients_interm_outputs,
+                                                 patients_surv_fns,
+                                                 patients_durations, patients_events,
+                                                 patients_events_index
+                                                 ):
+        surv_fns = []
+        durations = []
+        events = []
+        event_indices = []
+        loss = []
+        brier_score = []
+        modalities = []
+        embeddings = []
+        for patient in patients_interm_outputs.keys():
+            surv_fns.append(patients_surv_fns[patient])
+            durations.append(patients_durations[patient])
+            events.append(patients_events[patient])
+            event_indices.append(patients_events_index[patient])
+
+            _embs = torch.mean(torch.stack(list(patients_interm_outputs[patient].values())), axis=0, keepdim=True)
+            if self.hparams.use_modalities_embeddings:
+                emb_pos = [self.hparams.modalities.index(item) for item in
+                           list(patients_interm_outputs[patient].keys())]
+                modalities_embs = self.modality_embedding(torch.tensor(emb_pos, device=self.device))
+                _embs += torch.mean(modalities_embs, keepdim=True, dim=0)
+                embeddings.append(_embs)
+
+        embeddings_stacked = torch.cat(embeddings)
+
+        if self.hparams.use_separate_optimizer_for_surv_head:
+            embeddings_stacked = embeddings_stacked.detach()
+        surv_outputs = self.surv_head(embeddings_stacked)[0]
+        for patient, surv_out, surv_fn, event, event_ind, duration in zip(patients_interm_outputs.keys(), surv_outputs,
+                                                                          surv_fns, events,
+                                                                          event_indices, durations):
+            if event == 0:
+                surv_fn = surv_fn[:event_ind]
+                surv_out = surv_out[:event_ind]
+            loss.append(getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn))
+            brier_score.append(torch.mean((surv_fn - surv_out) ** 2))
+        concordance = {}
+        surv_head_concordance = lifelines.utils.concordance_index(torch.tensor(durations).cpu().numpy(),
+                                                                  torch.tensor(
+                                                                      surv_outputs >= self.survival_threshold).sum(
+                                                                      dim=1).detach().cpu().numpy(),
+                                                                  event_observed=np.array(events)
+                                                                  )
+        surv_head_loss = sum(loss) / len(loss)
+        brier_score = torch.mean(torch.tensor(brier_score))
+        return dict(surv_head_loss=surv_head_loss,
+                    surv_head_concordance=surv_head_concordance,
+                    durations=durations,
+                    brier_score=brier_score,
+                    events=events,
+                    surv_head_modality_concordance={})
+
+    def _surv_head_transformer_with_deep_sets_embedding_averaging(self,
+                                                                  patients_interm_outputs,
+                                                                  patients_surv_fns,
+                                                                  patients_durations, patients_events,
+                                                                  patients_events_index
+                                                                  ):
+        surv_fns = []
+        durations = []
+        events = []
+        event_indices = []
+        loss = []
+        brier_score = []
+
+        embeddings = torch.empty((0, len(self.hparams.modalities), 32), device=self.device)
+        src_key_padding_mask = torch.empty((0, len(self.hparams.modalities), 32), device=self.device)
+        for patient in patients_interm_outputs.keys():
+            surv_fns.append(patients_surv_fns[patient])
+            durations.append(patients_durations[patient])
+            events.append(patients_events[patient])
+            event_indices.append(patients_events_index[patient])
+
+            embs = torch.zeros((1, len(self.hparams.modalities), 32))
+            mask = torch.zeros((1,))
+
+            inds = []
+            for modality, _emb in patients_interm_outputs[patient].items():
+                ind = self.hparams.modalities.index(modality)
+                inds.append(ind)
+                embs[:, ind] = _emb
+            mask[inds] = 1
+            embeddings = torch.cat([embeddings, embs])
+
+            _embs = torch.mean(torch.stack(list(patients_interm_outputs[patient].values())), axis=0, keepdim=True)
+            if self.hparams.use_modalities_embeddings:
+                emb_pos = [self.hparams.modalities.index(item) for item in
+                           list(patients_interm_outputs[patient].keys())]
+                modalities_embs = self.modality_embedding(torch.tensor(emb_pos, device=self.device))
+                _embs += torch.mean(modalities_embs, keepdim=True, dim=0)
+                embeddings.append(_embs)
+
+        embeddings_stacked = torch.cat(embeddings)
+
+        if self.hparams.use_separate_optimizer_for_surv_head:
+            embeddings_stacked = embeddings_stacked.detach()
+        surv_outputs = self.surv_head(embeddings_stacked)[0]
+        for patient, surv_out, surv_fn, event, event_ind, duration in zip(patients_interm_outputs.keys(), surv_outputs,
+                                                                          surv_fns, events,
+                                                                          event_indices, durations):
+            if event == 0:
+                surv_fn = surv_fn[:event_ind]
+                surv_out = surv_out[:event_ind]
+            loss.append(getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn))
+            brier_score.append(torch.mean((surv_fn - surv_out) ** 2))
+        concordance = {}
+        surv_head_concordance = lifelines.utils.concordance_index(torch.tensor(durations).cpu().numpy(),
+                                                                  torch.tensor(
+                                                                      surv_outputs >= self.survival_threshold).sum(
+                                                                      dim=1).detach().cpu().numpy(),
+                                                                  event_observed=np.array(events)
+                                                                  )
+        surv_head_loss = sum(loss) / len(loss)
+        brier_score = torch.mean(torch.tensor(brier_score))
+        return dict(surv_head_loss=surv_head_loss,
+                    surv_head_concordance=surv_head_concordance,
+                    durations=durations,
+                    brier_score=brier_score,
+                    events=events,
+                    surv_head_modality_concordance={})
+
+    def compute_surv_head_loss_concordance(
+            self,
+            patients_interm_outputs: dict,
+            patients_surv_fns: tp.Dict[str, torch.Tensor],
+            patients_durations: tp.Dict[str, int],
+            patients_events: tp.Dict[str, int],
+            patients_events_index: tp.Dict[str, int],
+    ) -> dict:
+        """
+        This function computes the survival head loss and concordance index for a given set of patients. The input
+        includes a dictionary of patients' intermediate outputs, survival functions, durations, events,
+        and event indices.
+
+        The function first initializes empty lists for the survival functions, durations, events, event indices,
+        loss, and Brier score. For each patient in the input dictionary, it extends the survival functions,
+        durations, events, and event indices lists by the appropriate number of copies of the patient's corresponding
+        values.
+
+        It then concatenates the intermediate outputs for each patient and pass it through a survival head (
+        self.surv_head) to get the survival outputs. It then calculates the loss for each patient using the specified
+        loss function (self.hparams.loss_fn) by comparing the survival outputs with the survival functions. It also
+        calculates the Brier score for each patient.
+
+        Finally, it uses the lifelines.utils.concordance_index function to calculate the concordance index for all
+        the patients, using the durations, survival outputs, and events as input. The function returns a dictionary
+        containing the survival head loss, concordance index, durations, Brier score, and events.
+
+        """
+        if self.hparams.latent_space_modality_concatenation_method == 'single_modality':
+            return self._surv_head_inference_single_modality_based(patients_interm_outputs=patients_interm_outputs,
+                                                                   patients_surv_fns=patients_surv_fns,
+                                                                   patients_events=patients_events,
+                                                                   patients_events_index=patients_events_index,
+                                                                   patients_durations=patients_durations)
+        elif self.hparams.latent_space_modality_concatenation_method == 'deep_sets_embedding_averaging':
+            return self._surv_head_deep_sets_embedding_averaging(patients_interm_outputs=patients_interm_outputs,
+                                                                 patients_surv_fns=patients_surv_fns,
+                                                                 patients_events=patients_events,
+                                                                 patients_events_index=patients_events_index,
+                                                                 patients_durations=patients_durations)
+
     def compute_contrastive_loss_multi_modality(self, patients_features_interm_outputs: tp.Dict[
         str, tp.Dict[str, torch.Tensor]]):
         """
@@ -370,22 +527,21 @@ class MultiModalitiesModel(LightningModule):
         """
         embs_1, embs_2, target = [], [], []
         for patient in patients_features_interm_outputs.keys():
-            negative_patient = random.choice(list(set(list(patients_features_interm_outputs.keys())) - {patient}))
+            patient_modalities = list(patients_features_interm_outputs[patient].keys())
+            for modality in list(patients_features_interm_outputs[patient].keys()):
+                negative_patient = random.choice(list(set(list(patients_features_interm_outputs.keys())) - {patient}))
+                remaining_modalities = set(patient_modalities) - {modality}
+                if remaining_modalities:
+                    selected_modality = random.choice(list(remaining_modalities))
+                    embs_1.append(patients_features_interm_outputs[patient][modality])
+                    embs_2.append(patients_features_interm_outputs[patient][selected_modality])
+                    target.append(torch.tensor(1, dtype=torch.long, device=embs_1[-1].device))
 
-            modalities = list(patients_features_interm_outputs[patient].keys())
-            if len(modalities) > 1:
-                embs_1.append(patients_features_interm_outputs[patient][modalities[0]])
-                embs_2.append(patients_features_interm_outputs[patient][modalities[1]])
-                target.append(torch.tensor(1, dtype=torch.long, device=embs_1[-1].device))
-
-            negative_modalities = list(patients_features_interm_outputs[negative_patient].keys())
-            embs_1.append(patients_features_interm_outputs[patient][modalities[0]])
-            embs_2.append(patients_features_interm_outputs[negative_patient][negative_modalities[0]])
-            target.append(torch.tensor(0, dtype=torch.long, device=embs_1[-1].device))
-            if len(negative_modalities) > 1 and len(modalities) > 1:
-                embs_1.append(patients_features_interm_outputs[patient][modalities[1]])
-                embs_2.append(patients_features_interm_outputs[negative_patient][negative_modalities[1]])
+                negative_modalities = list(patients_features_interm_outputs[negative_patient].keys())
+                embs_1.append(patients_features_interm_outputs[patient][modality])
+                embs_2.append(patients_features_interm_outputs[negative_patient][negative_modalities[0]])
                 target.append(torch.tensor(0, dtype=torch.long, device=embs_1[-1].device))
+
         embs_1 = torch.stack(embs_1, dim=0)
         embs_2 = torch.stack(embs_2, dim=0)
         target = torch.stack(target)
@@ -436,7 +592,9 @@ class MultiModalitiesModel(LightningModule):
 
 @hydra.main(version_base=None, config_path='config/multi_modality_config', config_name='config')
 def main(config: DictConfig):
-    dm = MultiModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modalities=config.modalities)
+    dm = MultiModalitiesDataModule(database_params=config.db, batch_size=config.batch_size,
+                                   modalities=config.modalities, fetch_all_modalities=config.fetch_all_modalities,
+                                   survival_resolution=config.survival_resolution)
 
     print(OmegaConf.to_yaml(config))
 

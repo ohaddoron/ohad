@@ -181,7 +181,7 @@ class MultiModalityDataset(Dataset):
                  scaler: tp.Dict[str, ColumnTransformer] = None,
                  max_survival_duration: float = 32,
                  survival_resolution: int = 100,
-                 ):
+                 fetch_all_modalities=False):
         if db_params is None:
             db_params = {}
 
@@ -199,6 +199,7 @@ class MultiModalityDataset(Dataset):
             modalities}
 
         self.patients = patients
+        self.fetch_all_modalities = fetch_all_modalities
 
     def __len__(self):
         return len(self.patients)
@@ -207,8 +208,10 @@ class MultiModalityDataset(Dataset):
         patient = self.patients[item]
 
         modalities_available = [key for key in self.datasets.keys() if patient in self.datasets[key].patients]
-
-        chosen_modalities = random.sample(population=modalities_available, k=min(2, len(modalities_available)))
+        if self.fetch_all_modalities:
+            chosen_modalities = modalities_available
+        else:
+            chosen_modalities = random.sample(population=modalities_available, k=min(2, len(modalities_available)))
 
         out = {f'{modality}/{key}': value for modality in chosen_modalities for key, value in
                self.datasets[modality].get_patient_data(patient=patient).items()
