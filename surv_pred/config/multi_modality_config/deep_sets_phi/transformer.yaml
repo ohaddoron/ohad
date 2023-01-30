@@ -1,0 +1,7 @@
+name: DeepSetsPhiTransformer
+params:
+  d_model: 32
+  nhead: 8
+  activation: 'relu'
+  batch_first: true
+

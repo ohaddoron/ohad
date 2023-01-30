@@ -122,6 +122,8 @@ class MultiModalitiesModel(LightningModule):
 
         self.survival_threshold = Parameter(torch.tensor(0.5), requires_grad=False)
 
+        self.deep_sets_phi = getattr(models, self.hparams.deep_sets_phi['name'])(**self.hparams.deep_sets_phi['params'])
+
         self.surv_head = getattr(models, self.hparams.surv_head['name'])(**self.hparams.surv_head['params'])
 
         self.modality_embedding = nn.Embedding(num_embeddings=len(self.hparams.modalities), embedding_dim=32)
@@ -266,12 +268,12 @@ class MultiModalitiesModel(LightningModule):
                 'surv_outputs': surv_outputs.detach(),
                 }
 
-    def _surv_head_inference_single_modality_based(self,
-                                                   patients_interm_outputs,
-                                                   patients_surv_fns,
-                                                   patients_durations, patients_events,
-                                                   patients_events_index
-                                                   ):
+    def surv_head_inference_single_modality_based(self,
+                                                  patients_interm_outputs,
+                                                  patients_surv_fns,
+                                                  patients_durations, patients_events,
+                                                  patients_events_index
+                                                  ):
         surv_fns = []
         durations = []
         events = []
@@ -338,12 +340,12 @@ class MultiModalitiesModel(LightningModule):
                     events=events,
                     surv_head_modality_concordance=concordance)
 
-    def _surv_head_deep_sets_embedding_averaging(self,
-                                                 patients_interm_outputs,
-                                                 patients_surv_fns,
-                                                 patients_durations, patients_events,
-                                                 patients_events_index
-                                                 ):
+    def surv_head_deep_sets_embedding_averaging(self,
+                                                patients_interm_outputs,
+                                                patients_surv_fns,
+                                                patients_durations, patients_events,
+                                                patients_events_index
+                                                ):
         surv_fns = []
         durations = []
         events = []
@@ -370,7 +372,10 @@ class MultiModalitiesModel(LightningModule):
 
         if self.hparams.use_separate_optimizer_for_surv_head:
             embeddings_stacked = embeddings_stacked.detach()
-        surv_outputs = self.surv_head(embeddings_stacked)[0]
+
+        embeddings_after_phi = self.deep_sets_phi(embeddings_stacked)
+
+        surv_outputs = self.surv_head(embeddings_after_phi)[0]
         for patient, surv_out, surv_fn, event, event_ind, duration in zip(patients_interm_outputs.keys(), surv_outputs,
                                                                           surv_fns, events,
                                                                           event_indices, durations):
@@ -395,12 +400,12 @@ class MultiModalitiesModel(LightningModule):
                     events=events,
                     surv_head_modality_concordance={})
 
-    def _surv_head_transformer_with_deep_sets_embedding_averaging(self,
-                                                                  patients_interm_outputs,
-                                                                  patients_surv_fns,
-                                                                  patients_durations, patients_events,
-                                                                  patients_events_index
-                                                                  ):
+    def surv_head_transformer_with_deep_sets_embedding_averaging(self,
+                                                                 patients_interm_outputs,
+                                                                 patients_surv_fns,
+                                                                 patients_durations, patients_events,
+                                                                 patients_events_index
+                                                                 ):
         surv_fns = []
         durations = []
         events = []
@@ -416,30 +421,31 @@ class MultiModalitiesModel(LightningModule):
             events.append(patients_events[patient])
             event_indices.append(patients_events_index[patient])
 
-            embs = torch.zeros((1, len(self.hparams.modalities), 32))
-            mask = torch.zeros((1,))
+            embs = torch.zeros((1, len(self.hparams.modalities), 32), device=self.device)
 
             inds = []
+            p_mask = torch.ones((1, len(self.hparams.modalities), 32), device=src_key_padding_mask.device,
+                                dtype=self.dtype)
             for modality, _emb in patients_interm_outputs[patient].items():
                 ind = self.hparams.modalities.index(modality)
                 inds.append(ind)
+                if self.hparams.use_modalities_embeddings:
+                    emb_pos = self.hparams.modalities.index(modality)
+
+                    modality_emb = self.modality_embedding(torch.tensor(emb_pos, device=self.device))
+                    _emb = _emb + modality_emb
                 embs[:, ind] = _emb
-            mask[inds] = 1
+
+            p_mask[:, inds] = 0
+            src_key_padding_mask = torch.cat([src_key_padding_mask, p_mask])
+
             embeddings = torch.cat([embeddings, embs])
 
-            _embs = torch.mean(torch.stack(list(patients_interm_outputs[patient].values())), axis=0, keepdim=True)
-            if self.hparams.use_modalities_embeddings:
-                emb_pos = [self.hparams.modalities.index(item) for item in
-                           list(patients_interm_outputs[patient].keys())]
-                modalities_embs = self.modality_embedding(torch.tensor(emb_pos, device=self.device))
-                _embs += torch.mean(modalities_embs, keepdim=True, dim=0)
-                embeddings.append(_embs)
-
-        embeddings_stacked = torch.cat(embeddings)
-
         if self.hparams.use_separate_optimizer_for_surv_head:
-            embeddings_stacked = embeddings_stacked.detach()
-        surv_outputs = self.surv_head(embeddings_stacked)[0]
+            embeddings = embeddings.detach()
+
+        embeddings_post_transformer = torch.mean(self.deep_sets_phi(embeddings), axis=1)
+        surv_outputs = self.surv_head(embeddings_post_transformer)[0]
         for patient, surv_out, surv_fn, event, event_ind, duration in zip(patients_interm_outputs.keys(), surv_outputs,
                                                                           surv_fns, events,
                                                                           event_indices, durations):
@@ -493,17 +499,25 @@ class MultiModalitiesModel(LightningModule):
 
         """
         if self.hparams.latent_space_modality_concatenation_method == 'single_modality':
-            return self._surv_head_inference_single_modality_based(patients_interm_outputs=patients_interm_outputs,
-                                                                   patients_surv_fns=patients_surv_fns,
-                                                                   patients_events=patients_events,
-                                                                   patients_events_index=patients_events_index,
-                                                                   patients_durations=patients_durations)
+            return self.surv_head_inference_single_modality_based(patients_interm_outputs=patients_interm_outputs,
+                                                                  patients_surv_fns=patients_surv_fns,
+                                                                  patients_events=patients_events,
+                                                                  patients_events_index=patients_events_index,
+                                                                  patients_durations=patients_durations)
         elif self.hparams.latent_space_modality_concatenation_method == 'deep_sets_embedding_averaging':
-            return self._surv_head_deep_sets_embedding_averaging(patients_interm_outputs=patients_interm_outputs,
-                                                                 patients_surv_fns=patients_surv_fns,
-                                                                 patients_events=patients_events,
-                                                                 patients_events_index=patients_events_index,
-                                                                 patients_durations=patients_durations)
+            return self.surv_head_deep_sets_embedding_averaging(patients_interm_outputs=patients_interm_outputs,
+                                                                patients_surv_fns=patients_surv_fns,
+                                                                patients_events=patients_events,
+                                                                patients_events_index=patients_events_index,
+                                                                patients_durations=patients_durations)
+        elif self.hparams.latent_space_modality_concatenation_method == 'deep_sets_embedding_transformer_averaging':
+            return self.surv_head_transformer_with_deep_sets_embedding_averaging(
+                patients_interm_outputs=patients_interm_outputs,
+                patients_surv_fns=patients_surv_fns,
+                patients_events=patients_events,
+                patients_events_index=patients_events_index,
+                patients_durations=patients_durations
+            )
 
     def compute_contrastive_loss_multi_modality(self, patients_features_interm_outputs: tp.Dict[
         str, tp.Dict[str, torch.Tensor]]):
@@ -580,7 +594,8 @@ class MultiModalitiesModel(LightningModule):
         if self.hparams.use_separate_optimizer_for_surv_head:
             return [
                 AdamW(params=self.nets.parameters(recurse=True), lr=1e-4),
-                AdamW(params=list(self.surv_head.parameters()) + list(self.modality_embedding.parameters()), lr=5e-3)
+                AdamW(params=list(self.surv_head.parameters()) + list(self.modality_embedding.parameters()) + list(
+                    self.deep_sets_phi.parameters()), lr=5e-3)
             ]
         else:
             AdamW(params=list(self.nets.parameters(recurse=True)) + list(self.surv_head.parameters()) + list(
@@ -615,7 +630,7 @@ def main(config: DictConfig):
                                 name=f'MultiModality',
                                 log_model=config.log_model
                                 )
-        ml_logger.watch(model, log_graph=True)
+        # ml_logger.watch(model, log_graph=True)
 
     trainer = Trainer(gpus=[config.gpu],
                       logger=ml_logger,

@@ -1,4 +1,5 @@
 defaults:
+  - deep_sets_phi: mlp
   - override hydra/launcher: joblib
 
 modalities: [ miRNA, mRNA,DNAm, CNV, Clinical ]
@@ -12,7 +13,7 @@ batch_size: 256
 project: MultiModality
 debug: false
 max_survival_duration: 32
-survival_resolution: &SURVIVAL_RESOLUTION 20
+survival_resolution: &SURVIVAL_RESOLUTION 100
 early_stop_monitor:
   monitor: val/total_loss
   mode: min
@@ -95,15 +96,15 @@ surv_head:
     activation: ReLU
     dropout: 0.2
 
+
 use_surv_head: true
 use_modalities_embeddings: true
 modality_loss_head_from_latent: true
 use_separate_optimizer_for_surv_head: true
 
-latent_space_modality_concatenation_method: "single_modality" # deep_sets_embedding_averaging
+latent_space_modality_concatenation_method: "single_modality" # deep_sets_embedding_averaging / single_modality / deep_sets_embedding_transformer_averaging
 
 transformer_encoder_layer_params:
-  d_model: 32
-  n_head: 8
+
 
 fetch_all_modalities: true

@@ -9,7 +9,10 @@ import torchtuples as tt
 
 
 class DenseBlock(nn.Module):
-    def __init__(self, in_features: int, out_features: int, activation: tp.Union[str, tp.Callable],
+    def __init__(self,
+                 in_features: int,
+                 out_features: int,
+                 activation: tp.Union[str, tp.Callable],
                  activation_params=None,
                  dropout_rate: float = 0.):
         super(DenseBlock, self).__init__()
@@ -21,11 +24,35 @@ class DenseBlock(nn.Module):
         else:
             self.activation = activation
 
-        self.linear = nn.Linear(in_features=in_features, out_features=out_features)
+        self.linear = nn.LazyLinear(out_features=out_features)
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
         return self.activation(self.bn(self.linear(self.dropout(x))))
+
+
+class DeepSetsPhiMLP(nn.Module):
+    """
+    Phi projection based on deep sets paper for emebddings
+    """
+
+    def __init__(self,
+                 hidden_nodes: tp.List[int],
+                 out_features: int = 32,
+                 activations: str = 'ReLU'
+                 ):
+        super().__init__()
+        self.hidden_layers = nn.Sequential(
+            *[DenseBlock(out_features=hidden_node, activation=activations, in_features=None) for hidden_node in
+              hidden_nodes]
+        )
+        self.out_layer = DenseBlock(out_features=out_features, activation=activations, in_features=None)
+
+    def forward(self, x):
+        return self.out_layer(self.hidden_layers(x))
+
+
+class DeepSetsPhiTransformer(nn.TransformerEncoderLayer): pass
 
 
 def convert_predictions_to_survival_prediction(surv_output: torch.Tensor):

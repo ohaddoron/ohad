@@ -1,0 +1,7 @@
+name: DeepSetsPhiMLP
+params:
+  hidden_nodes:
+    - 64
+    - 64
+  out_features: 32
+  activations: 'ReLU'
