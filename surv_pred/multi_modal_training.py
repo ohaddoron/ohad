@@ -14,7 +14,7 @@ import torch
 from omegaconf import OmegaConf, DictConfig
 from pymongo import MongoClient
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, StochasticWeightAveraging
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
@@ -631,12 +631,15 @@ def main(config: DictConfig):
                                 log_model=config.log_model
                                 )
         # ml_logger.watch(model, log_graph=True)
+    callbacks = [EarlyStopping(**config.early_stop_monitor)]
 
     trainer = Trainer(gpus=[config.gpu],
                       logger=ml_logger,
-                      callbacks=[EarlyStopping(**config.early_stop_monitor)],
+                      callbacks=callbacks,
                       limit_train_batches=0.2,
-                      log_every_n_steps=20
+                      log_every_n_steps=20,
+                      gradient_clip_val=config.trainer_params.gradient_clip_val
+
                       )
     trainer.fit(model, datamodule=dm)
 

@@ -97,6 +97,11 @@ surv_head:
     dropout: 0.2
 
 
+trainer_params:
+  gradient_clip_val: 0.5
+
+
+
 use_surv_head: true
 use_modalities_embeddings: true
 modality_loss_head_from_latent: true
