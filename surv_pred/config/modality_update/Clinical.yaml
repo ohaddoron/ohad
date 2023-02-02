@@ -1,6 +1,6 @@
 # @package _global_
 modality: Clinical
 net_params:
-    name: ClinicalNet
-    in_features: 12
+  name: ClinicalNetAttention
+  in_features: 12
 gpu: 7

@@ -1,0 +1,4 @@
+name: CosineAnnealingWarmRestarts
+params:
+  T_0: 10
+  verbose: true

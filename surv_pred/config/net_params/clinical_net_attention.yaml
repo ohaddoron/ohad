@@ -1,0 +1,13 @@
+defaults:
+  - clinical_net
+name: ClinicalNetAttention
+embedding_dims:
+  - [33, 32]
+  - [2, 32]
+  - [8, 32]
+  - [3, 32]
+  - [3, 32]
+  - [3, 32]
+  - [3, 32]
+  - [3, 32]
+  - [20, 32]

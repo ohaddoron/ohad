@@ -46,13 +46,15 @@ class DeepSetsPhiMLP(nn.Module):
             *[DenseBlock(out_features=hidden_node, activation=activations, in_features=None) for hidden_node in
               hidden_nodes]
         )
-        self.out_layer = DenseBlock(out_features=out_features, activation=activations, in_features=None)
+        self.out_layer = DenseBlock(
+            out_features=out_features, activation=activations, in_features=None)
 
     def forward(self, x):
         return self.out_layer(self.hidden_layers(x))
 
 
-class DeepSetsPhiTransformer(nn.TransformerEncoderLayer): pass
+class DeepSetsPhiTransformer(nn.TransformerEncoderLayer):
+    pass
 
 
 def convert_predictions_to_survival_prediction(surv_output: torch.Tensor):
@@ -176,7 +178,8 @@ class CnvNet(nn.Module):
     def __init__(self, in_features, net_params: dict, embedding_dims=(3, 2), **kwargs):
         super().__init__()
         embedding_dims = [embedding_dims] * in_features
-        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y) for x, y in embedding_dims])
+        self.embedding_layers = nn.ModuleList(
+            [nn.Embedding(x, y) for x, y in embedding_dims])
 
         n_embeddings = in_features * 2
 
@@ -243,6 +246,61 @@ class ClinicalNet(nn.Module):
         continuous_x = self.bn_layer(continuous_x)
 
         x = torch.cat([x, continuous_x], 1)
+        out = self.output_layer(self.linear(x))
+
+        return out
+
+
+class ClinicalNetAttention(nn.Module):
+    def __init__(self, net_params, embedding_dims=None, **kwargs):
+        super().__init__()
+        if embedding_dims is None:
+            embedding_dims = [
+                (33, 32), (2, 32), (8, 32), (3, 32), (3,
+                                                      32), (3, 32), (3, 32), (3, 32),
+                (20, 32)]
+        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y)
+                                               for x, y in embedding_dims])
+
+        n_embeddings = sum([y for x, y in embedding_dims])
+        n_continuous = 1
+
+        # Linear Layers
+        self.continuous_linear = nn.LazyLinear(32)
+
+        self.attention = nn.TransformerEncoderLayer(d_model=32, nhead=8)
+
+        self.linear = nn.LazyLinear(256)
+
+        # Embedding dropout Layer
+        self.embedding_dropout = nn.Dropout()
+
+        # Continuous feature batch norm layer
+        self.bn_layer = nn.BatchNorm1d(n_continuous)
+
+        # Output Layer
+        self.output_layer = self._init_net(in_features=256, **net_params)
+
+    @staticmethod
+    def _init_net(name: str, **kwargs) -> nn.Module:
+        return globals()[name](**kwargs)
+
+    def forward(self, x):
+        continuous_x, categorical_x = x[:, :1], x[:, 1:]
+        categorical_x = categorical_x.to(torch.int64)
+
+        x = [emb_layer(categorical_x[:, i])
+             for i, emb_layer in enumerate(self.embedding_layers)]
+
+        continuous = self.continuous_linear(continuous_x).unsqueeze(1)
+        x = torch.stack(x, 1)
+
+        x = torch.cat([x, continuous], axis=1)
+
+        x = self.attention(x)
+
+        x = torch.mean(x, dim=-1)
+
         out = self.output_layer(self.linear(x))
 
         return out

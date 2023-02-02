@@ -3,6 +3,7 @@ import random
 import tempfile
 import typing as tp
 from pathlib import Path
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 import hydra
 import lifelines
@@ -41,8 +42,10 @@ class ModalitiesDataModule(LightningDataModule):
 
         patients_in_modality = set(
             self.get_patients_in_modality(modality=modality))
-        _patients = list(set(_patients).intersection(set(patients_in_modality)))
-        self.train_patients, self.val_patients = train_test_split(_patients, test_size=0.1)
+        _patients = list(set(_patients).intersection(
+            set(patients_in_modality)))
+        self.train_patients, self.val_patients = train_test_split(
+            _patients, test_size=0.1)
 
         self.test_patients = list(
             set(col.find({'split': 'test'}).distinct('patient')).intersection(patients_in_modality))
@@ -51,7 +54,8 @@ class ModalitiesDataModule(LightningDataModule):
 
     @staticmethod
     def get_patients_in_modality(modality: str, **kwargs):
-        df = pd.read_csv(Path(__file__).parent.joinpath(f'{modality}.csv')).set_index('patient').dropna()
+        df = pd.read_csv(Path(__file__).parent.joinpath(
+            f'{modality}.csv')).set_index('patient').dropna()
         return df.index.tolist()
 
     def setup(self, stage: tp.Optional[str] = None) -> None:
@@ -72,7 +76,7 @@ class ModalitiesDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=os.cpu_count() // 3,
+            num_workers=2,
             multiprocessing_context='fork'
         )
 
@@ -81,8 +85,8 @@ class ModalitiesDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=len(self.val_dataset),
             shuffle=False,
-            num_workers=os.cpu_count() // 3,
-            multiprocessing_context='fork'
+            num_workers=0,
+
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -103,9 +107,11 @@ class ModalitiesModel(LightningModule):
         super().__init__()
         self.save_hyperparameters(params)
 
-        self.net = getattr(models, self.hparams.net_params.name)(**self.hparams.net_params)
+        self.net = getattr(models, self.hparams.net_params.name)(
+            **self.hparams.net_params)
 
-        self.survival_threshold = Parameter(torch.tensor(0.01), requires_grad=False)
+        self.survival_threshold = Parameter(
+            torch.tensor(0.01), requires_grad=False)
 
     def prepare_data(self) -> None:
         return
@@ -121,7 +127,7 @@ class ModalitiesModel(LightningModule):
 
     def step(self, batch, purpose):
         features, durations, events, surv_fns, event_indices = batch['features'], batch['duration'], batch['event'], \
-                                                               batch['surv_fn'], batch['event_index']
+            batch['surv_fn'], batch['event_index']
 
         surv_outputs, interm_out = self(features)
         loss: torch.Tensor = torch.tensor(0.).type_as(features)
@@ -130,7 +136,8 @@ class ModalitiesModel(LightningModule):
             if event == 0:
                 surv_fn = surv_fn[:event_ind]
                 surv_out = surv_out[:event_ind]
-            loss += getattr(nn.functional, self.hparams.loss_fn)(surv_out, surv_fn)
+            loss += getattr(nn.functional,
+                            self.hparams.loss_fn)(surv_out, surv_fn)
             brier_score += torch.mean((surv_fn - surv_out) ** 2)
         loss /= len(surv_outputs)
         brier_score /= len(surv_outputs)
@@ -183,7 +190,8 @@ class ModalitiesModel(LightningModule):
                                                                               )
                                             )
         optimal = np.argmax(concordance_index_scores)
-        self.survival_threshold = Parameter(torch.tensor(thresholds[optimal], requires_grad=False))
+        self.survival_threshold = Parameter(
+            torch.tensor(thresholds[optimal], requires_grad=False))
         self.log('survival_threshold', self.survival_threshold)
         # LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
 
@@ -196,11 +204,14 @@ class ModalitiesModel(LightningModule):
                 # pos
                 embs_1.append(repr_1[i])
                 embs_2.append(repr_2[i])
-                target.append(torch.tensor(1, dtype=torch.long, device=repr_1.device))
+                target.append(torch.tensor(
+                    1, dtype=torch.long, device=repr_1.device))
                 # neg
                 embs_1.append(repr_1[1])
-                embs_2.append(repr_2[random.choice(list(set(range(len(repr_1))) - {i}))])
-                target.append(torch.tensor(0, dtype=torch.long, device=repr_1.device))
+                embs_2.append(repr_2[random.choice(
+                    list(set(range(len(repr_1))) - {i}))])
+                target.append(torch.tensor(
+                    0, dtype=torch.long, device=repr_1.device))
             embs_1 = torch.stack(embs_1, dim=0)
             embs_2 = torch.stack(embs_2, dim=0)
             target = torch.stack(target)
@@ -215,7 +226,13 @@ class ModalitiesModel(LightningModule):
         return getattr(nn.functional, reconstruction_loss_params['method'])(prediction, target)
 
     def configure_optimizers(self):
-        return AdamW(params=self.net.parameters(), lr=5e-4)
+        optimizer = AdamW(params=self.net.parameters(), lr=1e-3)
+        if not self.hparams.use_scheduler:
+            return optimizer
+        else:
+            scheduler = getattr(torch.optim.lr_scheduler, self.hparams.scheduler.name)(
+                optimizer=optimizer, **self.hparams.scheduler.params)
+            return {'optimizer': optimizer, 'lr_scheduler': scheduler}
 
     def forward(self, x) -> tp.Any:
         return self.net(x)
@@ -225,13 +242,15 @@ def compute_baseline_hazards(model: ModalitiesModel, batch):
     sorting_ind = torch.argsort(batch['duration'])
     features, durations, events = batch['features'][sorting_ind], batch['duration'][sorting_ind], batch['event'][
         sorting_ind]
-    model.net.compute_baseline_hazards(input=features, target=(durations, events), max_duration=50)
+    model.net.compute_baseline_hazards(
+        input=features, target=(durations, events), max_duration=50)
     return model
 
 
 @hydra.main(version_base=None, config_path='config', config_name='config')
 def main(config: DictConfig):
-    dm = ModalitiesDataModule(dataset_params=config.db, batch_size=config.batch_size, modality=config.modality)
+    dm = ModalitiesDataModule(
+        dataset_params=config.db, batch_size=config.batch_size, modality=config.modality)
 
     print(OmegaConf.to_yaml(config))
 
@@ -253,13 +272,15 @@ def main(config: DictConfig):
                                 name=f'modality={config.modality}/network={config.net_params.name}/use_recon_loss={config.reconstruction_loss_params.use}/dropout={config.net_params.dropout}',
                                 log_model=config.log_model
                                 )
-        ml_logger.watch(model, log_graph=True)
+        # ml_logger.watch(model, log_graph=True)
 
     trainer = Trainer(gpus=[config.gpu],
                       logger=ml_logger,
-                      callbacks=[EarlyStopping(**config.early_stop_monitor)],
+                      callbacks=[EarlyStopping(
+                          **config.early_stop_monitor), LearningRateMonitor('epoch')],
                       limit_train_batches=0.2,
-                      log_every_n_steps=20
+                      log_every_n_steps=20,
+                      gradient_clip_val=config.gradient_clip_val
                       )
     trainer.fit(model, datamodule=dm)
 

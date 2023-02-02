@@ -2,6 +2,7 @@ defaults:
   - net_params: ???
   - modality: ???
   - optional modality_update: ${modality}
+  - scheduler: cosine_annealing_warm_restarts
   - override hydra/launcher: joblib
 
 log_model: true
@@ -25,8 +26,11 @@ contrastive_loss_params:
   dropout_rate: 0.3
 db:
   db_params:
-    mongodb_connection_string: 'mongodb://admin:mimp1lab@132.66.207.18:80'
-    db_name: 'TCGAOmics'
+    mongodb_connection_string: "mongodb://admin:mimp1lab@132.66.207.18:80"
+    db_name: "TCGAOmics"
 loss_fn: mse_loss
 
 modality_loss_head_from_latent: true
+
+use_scheduler: false
+gradient_clip_val: 0.5
