@@ -24,7 +24,7 @@ class DenseBlock(nn.Module):
         else:
             self.activation = activation
 
-        self.linear = nn.LazyLinear(out_features=out_features)
+        self.linear = nn.Linear(in_features=in_features, out_features=out_features)
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
@@ -38,16 +38,18 @@ class DeepSetsPhiMLP(nn.Module):
 
     def __init__(self,
                  hidden_nodes: tp.List[int],
+                 in_features: int = 32,
                  out_features: int = 32,
                  activations: str = 'ReLU'
                  ):
         super().__init__()
         self.hidden_layers = nn.Sequential(
-            *[DenseBlock(out_features=hidden_node, activation=activations, in_features=None) for hidden_node in
+            *[DenseBlock(in_features=in_features, out_features=hidden_node, activation=activations)
+              for hidden_node in
               hidden_nodes]
         )
         self.out_layer = DenseBlock(
-            out_features=out_features, activation=activations, in_features=None)
+            out_features=out_features, activation=activations, in_features=in_features)
 
     def forward(self, x):
         return self.out_layer(self.hidden_layers(x))
@@ -60,7 +62,7 @@ class DeepSetsPhiTransformer(nn.TransformerEncoderLayer):
 def convert_predictions_to_survival_prediction(surv_output: torch.Tensor):
     output = torch.ones_like(surv_output)
     cum_sum_surv_out = torch.cumsum(surv_output, dim=1)
-    return output - cum_sum_surv_out
+    return torch.clamp(output - cum_sum_surv_out, min=0, max=1)
 
 
 class SurvMLP(nn.Module):
@@ -266,11 +268,11 @@ class ClinicalNetAttention(nn.Module):
         n_continuous = 1
 
         # Linear Layers
-        self.continuous_linear = nn.LazyLinear(32)
+        self.continuous_linear = nn.Linear(1, 32)
 
         self.attention = nn.TransformerEncoderLayer(d_model=32, nhead=8)
 
-        self.linear = nn.LazyLinear(256)
+        self.linear = nn.Linear(10, 256)
 
         # Embedding dropout Layer
         self.embedding_dropout = nn.Dropout()

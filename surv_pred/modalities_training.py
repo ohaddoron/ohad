@@ -4,7 +4,6 @@ import tempfile
 import typing as tp
 from pathlib import Path
 from pytorch_lightning.callbacks import LearningRateMonitor
-
 import hydra
 import lifelines
 import lifelines.utils
@@ -15,7 +14,7 @@ from loguru import logger as LOGGER
 from omegaconf import DictConfig, OmegaConf
 from pymongo import MongoClient
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADERS, STEP_OUTPUT
 from sklearn.model_selection import train_test_split
@@ -127,7 +126,7 @@ class ModalitiesModel(LightningModule):
 
     def step(self, batch, purpose):
         features, durations, events, surv_fns, event_indices = batch['features'], batch['duration'], batch['event'], \
-            batch['surv_fn'], batch['event_index']
+                                                               batch['surv_fn'], batch['event_index']
 
         surv_outputs, interm_out = self(features)
         loss: torch.Tensor = torch.tensor(0.).type_as(features)
@@ -272,12 +271,14 @@ def main(config: DictConfig):
                                 name=f'modality={config.modality}/network={config.net_params.name}/use_recon_loss={config.reconstruction_loss_params.use}/dropout={config.net_params.dropout}',
                                 log_model=config.log_model
                                 )
-        # ml_logger.watch(model, log_graph=True)
+        ml_logger.watch(model)
+
+    checkpoint_callback = ModelCheckpoint(monitor='val/concordance_index', mode="max")
 
     trainer = Trainer(gpus=[config.gpu],
                       logger=ml_logger,
                       callbacks=[EarlyStopping(
-                          **config.early_stop_monitor), LearningRateMonitor('epoch')],
+                          **config.early_stop_monitor), LearningRateMonitor('epoch'), checkpoint_callback],
                       limit_train_batches=0.2,
                       log_every_n_steps=20,
                       gradient_clip_val=config.gradient_clip_val
