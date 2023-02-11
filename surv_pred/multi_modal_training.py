@@ -82,9 +82,9 @@ class MultiModalitiesDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=os.cpu_count() // 3,
+            num_workers=0,
             collate_fn=self.train_dataset.collate_fn,
-            multiprocessing_context='fork'
+            # multiprocessing_context='fork'
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -92,9 +92,8 @@ class MultiModalitiesDataModule(LightningDataModule):
             self.val_dataset,
             batch_size=len(self.val_dataset),
             shuffle=False,
-            num_workers=os.cpu_count() // 3,
+            num_workers=0,
             collate_fn=self.val_dataset.collate_fn,
-            multiprocessing_context='fork'
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -593,13 +592,13 @@ class MultiModalitiesModel(LightningModule):
     def configure_optimizers(self):
         if self.hparams.use_separate_optimizer_for_surv_head:
             return [
-                AdamW(params=self.nets.parameters(recurse=True), lr=1e-4),
+                AdamW(params=self.nets.parameters(recurse=True), lr=1e-4, weight_decay=self.hparams.weight_decay),
                 AdamW(params=list(self.surv_head.parameters()) + list(self.modality_embedding.parameters()) + list(
-                    self.deep_sets_phi.parameters()), lr=5e-3)
+                    self.deep_sets_phi.parameters()), lr=5e-3, weight_decay=self.hparams.weight_decay)
             ]
         else:
             AdamW(params=list(self.nets.parameters(recurse=True)) + list(self.surv_head.parameters()) + list(
-                self.modality_embedding.parameters()), lr=1e-4)
+                self.modality_embedding.parameters()), lr=1e-4, weight_decay=self.hparams.weight_decay)
 
     def forward(self, x) -> tp.Any:
         return self.net(x)

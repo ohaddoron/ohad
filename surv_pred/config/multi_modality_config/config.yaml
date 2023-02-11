@@ -113,3 +113,5 @@ transformer_encoder_layer_params:
 
 
 fetch_all_modalities: true
+
+weight_decay: 1e-2

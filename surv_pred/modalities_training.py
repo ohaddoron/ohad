@@ -225,7 +225,7 @@ class ModalitiesModel(LightningModule):
         return getattr(nn.functional, reconstruction_loss_params['method'])(prediction, target)
 
     def configure_optimizers(self):
-        optimizer = AdamW(params=self.net.parameters(), lr=1e-3)
+        optimizer = AdamW(params=self.net.parameters(), lr=self.hparams.lr)
         if not self.hparams.use_scheduler:
             return optimizer
         else:

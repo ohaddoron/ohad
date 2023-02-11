@@ -34,3 +34,5 @@ modality_loss_head_from_latent: true
 
 use_scheduler: false
 gradient_clip_val: 0.5
+
+lr: 1e-3
