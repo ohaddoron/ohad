@@ -105,9 +105,14 @@ class ModalitiesModel(LightningModule):
     def __init__(self, params: dict, device: int):
         super().__init__()
         self.save_hyperparameters(params)
-
-        self.net = getattr(models, self.hparams.net_params.name)(
-            **self.hparams.net_params)
+        net_params = dict(self.hparams.net_params)
+        name = net_params.pop('name')
+        net_params.pop('in_features')
+        net_params['cat_idxs'] = list(net_params['cat_idxs'])
+        net_params['cat_dims'] = list(net_params['cat_dims'])
+        net_params['cat_emb_dim'] = list(net_params['cat_emb_dim'])
+        self.net = getattr(models, name)(
+            **net_params)
 
         self.survival_threshold = Parameter(
             torch.tensor(0.01), requires_grad=False)
@@ -268,7 +273,7 @@ def main(config: DictConfig):
 
     else:
         ml_logger = WandbLogger(project=config.project,
-                                name=f'modality={config.modality}/network={config.net_params.name}/use_recon_loss={config.reconstruction_loss_params.use}/dropout={config.net_params.dropout}',
+                                name=f'modality={config.modality}/network={config.net_params.name}/use_recon_loss={config.reconstruction_loss_params.use}/dropout=0',
                                 log_model=config.log_model
                                 )
         ml_logger.watch(model)

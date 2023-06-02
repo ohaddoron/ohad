@@ -1,4 +1,6 @@
 import torch
+from pytorch_tabnet.tab_network import TabNet as ClinicalTabNet
+from pytorch_tabnet.tab_model import TabNetRegressor
 from torch import nn
 import typing as tp
 
