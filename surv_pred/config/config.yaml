@@ -33,6 +33,9 @@ loss_fn: mse_loss
 modality_loss_head_from_latent: true
 
 use_scheduler: false
-gradient_clip_val: 0.5
+gradient_clip_val: 1
 
 lr: 1e-3
+weight_decay: 1e-1
+
+calibrate_survival_threshold: true

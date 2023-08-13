@@ -161,9 +161,22 @@ class ModalitiesDataset(Dataset, ABC):
         surv_fn = np.ones(len(self.survival_array), dtype=np.float32)
         if surv_data['event'] == 1.:
             surv_fn[event_index:] = 0.
-
+        if 'Clinical' not in self.modality:
+            return dict(
+                features=self.scaler.transform(pd.DataFrame(self.data.loc[patient]).T).squeeze().astype(np.float32),
+                surv_fn=surv_fn,
+                event_index=event_index,
+                **surv_data)
+        df = pd.DataFrame(self.data.loc[patient]).T
+        df = df[['project_id', 'synchronous_malignancy', 'ajcc_pathologic_stage',
+                 'tissue_or_organ_of_origin', 'primary_diagnosis', 'prior_malignancy', 'prior_treatment',
+                 'ajcc_pathologic_t', 'ajcc_pathologic_n', 'ajcc_pathologic_m', 'site_of_resection_or_biopsy',
+                 'race', 'gender', 'treatments_pharmaceutical_treatment_type',
+                 'treatments_pharmaceutical_treatment_or_therapy',
+                 'treatments_radiation_treatment_type', 'treatments_radiation_treatment_or_therapy', 'figo_stage',
+                 'ajcc_clinical_t', 'ajcc_clinical_m', 'age_at_diagnosis', 'pack_years_smoked', 'cigarettes_per_day']]
         return dict(
-            features=self.scaler.transform(pd.DataFrame(self.data.loc[patient]).T).squeeze().astype(np.float32),
+            features=df.squeeze().astype(np.float32).values,
             surv_fn=surv_fn,
             event_index=event_index,
             **surv_data)

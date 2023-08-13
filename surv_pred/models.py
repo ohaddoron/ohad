@@ -1,5 +1,5 @@
 import torch
-from pytorch_tabnet.tab_network import TabNet as ClinicalTabNet
+from pytorch_tabnet.tab_network import TabNet
 from pytorch_tabnet.tab_model import TabNetRegressor
 from torch import nn
 import typing as tp
@@ -304,6 +304,69 @@ class ClinicalNetAttention(nn.Module):
         x = self.attention(x)
 
         x = torch.mean(x, dim=-1)
+
+        out = self.output_layer(self.linear(x))
+
+        return out
+
+
+class ClinicalTabNet(TabNet):
+    def forward(self, x):
+        return convert_predictions_to_survival_prediction(Softmax()(super().forward(x)[0])), None
+
+
+class ClinicalAttentionSrcMasking(nn.Module):
+    def __init__(self, net_params, embedding_dims=None, **kwargs):
+        super().__init__()
+        if embedding_dims is None:
+            embedding_dims = [
+                (33, 17), (3, 2), (19, 10), (138, 50), (135,
+                                                        59), (3, 2), (3, 2), (27, 14),
+                (19, 10), (8, 4), (157, 50), (8, 4), (2, 1), (1, 1), (3, 2), (1, 1), (3, 2), (24, 12), (19, 10), (7, 4)
+            ]
+        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y)
+                                               for x, y in embedding_dims])
+
+        n_embeddings = sum([y for x, y in embedding_dims])
+        n_continuous = 1
+
+        # Linear Layers
+        self.continuous_linear = nn.Linear(1, 64)
+
+        self.attention = nn.TransformerEncoderLayer(d_model=64, nhead=64, batch_first=True, dropout=0.3)
+
+        self.linear = nn.Linear(23, 256)
+
+        # Embedding dropout Layer
+        self.embedding_dropout = nn.Dropout()
+
+        # Continuous feature batch norm layer
+        self.bn_layer = nn.BatchNorm1d(n_continuous)
+
+        # Output Layer
+        self.output_layer = self._init_net(in_features=256, **net_params)
+
+    @staticmethod
+    def _init_net(name: str, **kwargs) -> nn.Module:
+        return globals()[name](**kwargs)
+
+    def forward(self, x):
+        continuous_x, categorical_x = x[:, -3:], x[:, :-3]
+        categorical_x = categorical_x.to(torch.int64)
+        src_masking = x == -1
+        x = []
+        for i, emb_layer in enumerate(self.embedding_layers):
+            x.append(emb_layer(torch.max(categorical_x[:, i], torch.zeros_like(categorical_x[:, i]))))
+        # x = [emb_layer(categorical_x[:, i])
+        #      for i, emb_layer in enumerate(self.embedding_layers)]
+        [x.append(self.continuous_linear(continuous_x[:, i].unsqueeze(1))) for i in range(3)]
+        x = torch.stack(x, 1)
+
+        x = self.attention(x, src_key_padding_mask=src_masking)
+
+        x = torch.mean(x, dim=-1)
+
+        x = nn.functional.dropout1d(x, p=0.2)
 
         out = self.output_layer(self.linear(x))
 

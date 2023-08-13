@@ -76,7 +76,8 @@ class ModalitiesDataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=2,
-            multiprocessing_context='fork'
+            multiprocessing_context='fork',
+            drop_last=True
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -108,11 +109,14 @@ class ModalitiesModel(LightningModule):
         net_params = dict(self.hparams.net_params)
         name = net_params.pop('name')
         net_params.pop('in_features')
-        net_params['cat_idxs'] = list(net_params['cat_idxs'])
-        net_params['cat_dims'] = list(net_params['cat_dims'])
-        net_params['cat_emb_dim'] = list(net_params['cat_emb_dim'])
+        try:
+            net_params['cat_idxs'] = list(net_params['cat_idxs'])
+            net_params['cat_dims'] = list(net_params['cat_dims'])
+            net_params['cat_emb_dim'] = list(net_params['cat_emb_dim'])
+        except KeyError:
+            pass
         self.net = getattr(models, name)(
-            **net_params)
+            **net_params).cpu()
 
         self.survival_threshold = Parameter(
             torch.tensor(0.01), requires_grad=False)
@@ -145,27 +149,35 @@ class ModalitiesModel(LightningModule):
             brier_score += torch.mean((surv_fn - surv_out) ** 2)
         loss /= len(surv_outputs)
         brier_score /= len(surv_outputs)
+        try:
+            concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(),
+                                                                  torch.tensor(
+                                                                      surv_outputs >= self.survival_threshold).sum(
+                                                                      dim=1).detach().cpu().numpy(),
+                                                                  event_observed=events.cpu().numpy()
+                                                                  )
+        except:
+            concordance_index = None
+        if interm_out is not None:
+            recon_loss = self.compute_reconstruction_loss(
+                reconstruction_loss_params=self.hparams.reconstruction_loss_params,
+                prediction=interm_out[-1],
+                target=features
+            )
 
-        concordance_index = lifelines.utils.concordance_index(durations.cpu().numpy(),
-                                                              torch.tensor(surv_outputs >= self.survival_threshold).sum(
-                                                                  dim=1).detach().cpu().numpy(),
-                                                              event_observed=events.cpu().numpy()
-                                                              )
-
-        recon_loss = self.compute_reconstruction_loss(
-            reconstruction_loss_params=self.hparams.reconstruction_loss_params,
-            prediction=interm_out[-1],
-            target=features
-        )
-
-        c_loss = self.compute_contrastive_loss(interm_out=interm_out, features=features,
-                                               **self.hparams.contrastive_loss_params)
+            c_loss = self.compute_contrastive_loss(interm_out=interm_out, features=features,
+                                                   **self.hparams.contrastive_loss_params)
+        else:
+            recon_loss = torch.tensor(0.).to(self.device)
+            c_loss = torch.tensor(0.).to(self.device)
 
         log_dict = {
             f'{purpose}/loss': loss,
-            f'{purpose}/concordance_index': concordance_index,
+
             f'{purpose}/brier_score': brier_score
         }
+        if concordance_index is not None:
+            log_dict.update({f'{purpose}/concordance_index': concordance_index})
         if recon_loss is not None:
             loss += recon_loss
             log_dict.update({f'{purpose}/recon_loss': recon_loss})
@@ -194,8 +206,9 @@ class ModalitiesModel(LightningModule):
                                                                               )
                                             )
         optimal = np.argmax(concordance_index_scores)
-        self.survival_threshold = Parameter(
-            torch.tensor(thresholds[optimal], requires_grad=False))
+        if self.hparams.calibrate_survival_threshold:
+            self.survival_threshold = Parameter(
+                torch.tensor(thresholds[optimal], requires_grad=False))
         self.log('survival_threshold', self.survival_threshold)
         # LOGGER.info('Optimal threshold: {}'.format(self.survival_threshold))
 
@@ -230,7 +243,7 @@ class ModalitiesModel(LightningModule):
         return getattr(nn.functional, reconstruction_loss_params['method'])(prediction, target)
 
     def configure_optimizers(self):
-        optimizer = AdamW(params=self.net.parameters(), lr=self.hparams.lr)
+        optimizer = AdamW(params=self.net.parameters(), lr=self.hparams.lr, weight_decay=self.hparams.weight_decay)
         if not self.hparams.use_scheduler:
             return optimizer
         else:
@@ -268,7 +281,7 @@ def main(config: DictConfig):
 
     if config.debug:
         ml_logger = TensorBoardLogger(save_dir=tempfile.gettempdir(),
-                                      name=f'modality={config.modality}'
+                                      name=f'modal  ity={config.modality}'
                                       )
 
     else:
@@ -284,7 +297,7 @@ def main(config: DictConfig):
                       logger=ml_logger,
                       callbacks=[EarlyStopping(
                           **config.early_stop_monitor), LearningRateMonitor('epoch'), checkpoint_callback],
-                      limit_train_batches=0.2,
+                      # limit_train_batches=0.2,
                       log_every_n_steps=20,
                       gradient_clip_val=config.gradient_clip_val
                       )
