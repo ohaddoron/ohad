@@ -9,7 +9,7 @@ log_model: true
 train_patients: ???
 val_patients: ???
 test_patients: ???
-batch_size: 256
+batch_size: 64
 project: MultiModality
 debug: false
 max_survival_duration: 32
