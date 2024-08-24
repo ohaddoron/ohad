@@ -58,7 +58,7 @@ class ModalitiesDataset(Dataset, ABC):
         self._db_params = db_params
         self.modality = modality
 
-        logger.info('Fetching raw data')
+        logger.info(f'Fetching raw data {modality}')
         self.data: pd.DataFrame = self.fetch_modality_data(**db_params, patients=patients, modality=modality)
         self.patients = self.data.index.tolist()
         logger.info('Raw data fetched')
